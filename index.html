@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="id">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        <title>AnalyticsHub</title>
+
+        <!--
+            Tema diterapkan sebelum CSS dimuat agar tidak ada kedipan putih saat
+            membuka aplikasi dalam mode gelap. Harus inline dan berjalan lebih
+            dulu daripada bundel aplikasi; jangan dipindah ke bawah.
+        -->
+        <script>
+            (function () {
+                try {
+                    var stored =
+                        localStorage.getItem('analyticshub.theme') || 'system';
+                    var isDark =
+                        stored === 'dark' ||
+                        (stored === 'system' &&
+                            window.matchMedia('(prefers-color-scheme: dark)')
+                                .matches);
+
+                    document.documentElement.classList.toggle('dark', isDark);
+                    document.documentElement.dataset.theme = isDark
+                        ? 'dark'
+                        : 'light';
+                } catch (e) {
+                    // localStorage diblokir (mode privat) — biarkan tema terang.
+                }
+            })();
+        </script>
+
+        <link rel="preconnect" href="https://fonts.bunny.net" />
+        <link
+            href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap"
+            rel="stylesheet"
+        />
+    </head>
+    <body class="font-sans antialiased">
+        <div id="app"></div>
+        <script type="module" src="/resources/js/app.js"></script>
+    </body>
+</html>

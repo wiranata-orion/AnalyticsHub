@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html {
+        color-scheme: light;
+    }
+
+    html.dark {
+        color-scheme: dark;
+    }
+
+    body {
+        @apply bg-plane text-ink dark:bg-plane-dark dark:text-ink-dark;
+    }
+
+    /* Scrollbar ikut tema agar panel gelap tidak menyisakan track terang. */
+    * {
+        scrollbar-color: theme('colors.baseline') transparent;
+    }
+
+    .dark * {
+        scrollbar-color: theme('colors.baseline-dark') transparent;
+    }
+}
+
+@layer components {
+    /*
+     * Dipakai semua elemen interaktif. Ring offset ikut permukaan supaya
+     * indikator fokus tetap terbaca di kedua tema.
+     */
+    .focus-ring {
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-plane dark:focus-visible:ring-accent-dark dark:focus-visible:ring-offset-plane-dark;
+    }
+}
