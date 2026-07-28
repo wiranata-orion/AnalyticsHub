@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
@@ -7,8 +8,56 @@ import AppBadge from '@/Components/UI/AppBadge.vue';
 import AppIcon from '@/Components/UI/AppIcon.vue';
 import ThemeToggle from '@/Components/UI/ThemeToggle.vue';
 import { useTheme } from '@/Composables/useTheme';
+import { useToastStore } from '@/stores/toast';
 
 const { preference } = useTheme();
+const toast = useToastStore();
+
+/*
+ * Preferensi penyimpanan disimpan di localStorage sampai ada endpoint
+ * pengaturan; kuncinya per-peramban, sama seperti preferensi tema.
+ */
+const STORAGE_KEY = 'analyticshub:storage-prefs';
+
+const STORAGE_OPTIONS = [
+    {
+        key: 'keepOriginal',
+        label: 'Simpan berkas asli setelah cleaning selesai',
+        default: true,
+    },
+    {
+        key: 'autoDelete',
+        label: 'Hapus otomatis dataset yang tidak diakses 90 hari',
+        default: false,
+    },
+    {
+        key: 'notify',
+        label: 'Kirim notifikasi saat analisis selesai',
+        default: true,
+    },
+];
+
+function loadStoragePrefs() {
+    const defaults = Object.fromEntries(
+        STORAGE_OPTIONS.map((option) => [option.key, option.default]),
+    );
+
+    try {
+        return {
+            ...defaults,
+            ...JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}'),
+        };
+    } catch {
+        return defaults;
+    }
+}
+
+const storagePrefs = ref(loadStoragePrefs());
+
+function saveStoragePrefs() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(storagePrefs.value));
+    toast.push('Preferensi penyimpanan disimpan di peramban ini.');
+}
 
 const THEME_LABELS = {
     light: 'Selalu terang',
@@ -102,26 +151,13 @@ const SYSTEM_ROWS = [
                 >
                     <div class="space-y-4">
                         <label
-                            v-for="option in [
-                                {
-                                    label: 'Simpan berkas asli setelah cleaning selesai',
-                                    checked: true,
-                                },
-                                {
-                                    label: 'Hapus otomatis dataset yang tidak diakses 90 hari',
-                                    checked: false,
-                                },
-                                {
-                                    label: 'Kirim notifikasi saat analisis selesai',
-                                    checked: true,
-                                },
-                            ]"
-                            :key="option.label"
+                            v-for="option in STORAGE_OPTIONS"
+                            :key="option.key"
                             class="flex items-start gap-2.5"
                         >
                             <input
+                                v-model="storagePrefs[option.key]"
                                 type="checkbox"
-                                :checked="option.checked"
                                 class="focus-ring mt-0.5 h-4 w-4 rounded border-hairline text-accent focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark"
                             />
                             <span class="text-sm text-ink-2 dark:text-ink-2-dark">
@@ -132,7 +168,11 @@ const SYSTEM_ROWS = [
 
                     <template #footer>
                         <div class="flex justify-end">
-                            <AppButton variant="primary" size="sm">
+                            <AppButton
+                                variant="primary"
+                                size="sm"
+                                @click="saveStoragePrefs"
+                            >
                                 Simpan Perubahan
                             </AppButton>
                         </div>

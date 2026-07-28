@@ -7,16 +7,35 @@ import AppButton from '@/Components/UI/AppButton.vue';
 import AppIcon from '@/Components/UI/AppIcon.vue';
 import ChartPanel from '@/Components/Charts/ChartPanel.vue';
 import DatasetSelector from '@/Components/Datasets/DatasetSelector.vue';
+import { useToastStore } from '@/stores/toast';
 import { cleaning } from '@/data/placeholder';
 
 const { issues, strategies, impact } = cleaning;
+const toast = useToastStore();
 
 // Salinan lokal agar pilihan pengguna tidak memutasi data sumber bersama.
-const selectedStrategies = ref(
+const defaultStrategies = () =>
     Object.fromEntries(
         strategies.map((strategy) => [strategy.key, strategy.selected]),
-    ),
-);
+    );
+
+const selectedStrategies = ref(defaultStrategies());
+const isApplying = ref(false);
+
+// Simulasi job cleaning; nanti diganti pemanggilan Python engine lewat API.
+function applyCleaning() {
+    isApplying.value = true;
+
+    setTimeout(() => {
+        isApplying.value = false;
+        toast.push('Cleaning diterapkan pada salinan dataset — berkas asli utuh.');
+    }, 1500);
+}
+
+function resetStrategies() {
+    selectedStrategies.value = defaultStrategies();
+    toast.push('Strategi dikembalikan ke rekomendasi default.', 'info');
+}
 
 const ISSUE_TONES = {
     warning: 'text-[#8a5a00] dark:text-status-warning',
@@ -37,8 +56,13 @@ const ISSUE_TONES = {
         >
             <template #actions>
                 <DatasetSelector />
-                <AppButton variant="primary" icon="play">
-                    Terapkan Cleaning
+                <AppButton
+                    variant="primary"
+                    icon="play"
+                    :disabled="isApplying"
+                    @click="applyCleaning"
+                >
+                    {{ isApplying ? 'Menerapkan…' : 'Terapkan Cleaning' }}
                 </AppButton>
             </template>
         </PageHeader>
@@ -123,7 +147,7 @@ const ISSUE_TONES = {
                             <p class="text-xs text-ink-3">
                                 Perubahan diterapkan pada salinan, dataset asli tetap utuh.
                             </p>
-                            <AppButton size="sm" icon="refresh">
+                            <AppButton size="sm" icon="refresh" @click="resetStrategies">
                                 Kembalikan Default
                             </AppButton>
                         </div>

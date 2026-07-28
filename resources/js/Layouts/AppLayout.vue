@@ -4,6 +4,9 @@ import { RouterLink, useRoute } from 'vue-router';
 import AppIcon from '@/Components/UI/AppIcon.vue';
 import SidebarLink from '@/Components/Navigation/SidebarLink.vue';
 import ThemeToggle from '@/Components/UI/ThemeToggle.vue';
+import ToastHost from '@/Components/UI/ToastHost.vue';
+import ConfirmDialog from '@/Components/UI/ConfirmDialog.vue';
+import { useToastStore } from '@/stores/toast';
 
 /*
  * Shell aplikasi: sidebar tetap di layar besar, drawer di layar kecil.
@@ -14,6 +17,7 @@ import ThemeToggle from '@/Components/UI/ThemeToggle.vue';
  */
 const route = useRoute();
 const sidebarOpen = ref(false);
+const toast = useToastStore();
 
 const NAV_GROUPS = [
     {
@@ -22,6 +26,7 @@ const NAV_GROUPS = [
             { label: 'Dashboard', icon: 'dashboard', name: 'dashboard', match: 'dashboard' },
         ],
     },
+
     {
         label: 'Data',
         items: [
@@ -30,28 +35,39 @@ const NAV_GROUPS = [
             { label: 'Cleaning', icon: 'cleaning', name: 'cleaning.index', match: 'cleaning' },
         ],
     },
+
     {
         label: 'Analisis',
         items: [
             { label: 'Visualisasi', icon: 'visualization', name: 'visualization.index', match: 'visualization' },
-            { label: 'Data Mining', icon: 'mining', name: 'mining.index', match: 'mining' },
-            { label: 'Machine Learning', icon: 'ml', name: 'machine-learning.index', match: 'machine-learning' },
+            { label: 'EDA', icon: 'eda', name: '', match: 'eda' },
+            { label: 'Analisis Statistik', icon: 'statistical-analysis', name: '', match: 'statistical-analysis' },
+            { label: 'Data Quality', icon: 'data-quality', name: '', match: 'data-quality' },
         ],
     },
+
+    {
+        label: 'AI & Mining',
+        items: [
+            { label: 'Auto Recommendation', icon: 'auto-recommendation', name: '', match: 'auto-recommendation' },
+            { label: 'Data Mining', icon: 'mining', name: 'mining.index', match: 'mining' },
+            { label: 'Feature Engineering', icon: 'feature-engineering', name: '', match: 'feature-engineering' },
+            { label: 'Machine Learning', icon: 'ml', name: 'machine-learning.index', match: 'machine-learning' },
+            { label: 'AutoML', icon: 'automl', name: '', match: 'automl' },
+            { label: 'Model Comparison', icon: 'model-comparison', name: '', match: 'model-comparison' },
+            { label: 'Explainable AI', icon: 'explainable-ai', name: '', match: 'explainable-ai' },
+            { label: 'Forecasting', icon: 'forecasting', name: '', match: 'forecasting' },
+        ],
+    },
+
     {
         label: 'Keluaran',
         items: [
             { label: 'Laporan', icon: 'reports', name: 'reports.index', match: 'reports' },
-        ],
-    },
-    {
-        label: 'Sistem',
-        items: [
-            { label: 'Pengaturan', icon: 'settings', name: 'settings.index', match: 'settings' },
+            { label: 'Auto Insight', icon: 'auto-insight', name: '', match: 'auto-insight' },
         ],
     },
 ];
-
 const currentName = computed(() => String(route.name ?? ''));
 
 const isActive = (match) =>
@@ -133,16 +149,6 @@ watch(() => route.fullPath, () => (sidebarOpen.value = false));
                     </div>
                 </div>
             </nav>
-
-            <div class="shrink-0 border-t border-hairline p-3 dark:border-hairline-dark">
-                <RouterLink
-                    :to="{ name: 'datasets.create' }"
-                    class="focus-ring flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#256abf] dark:bg-accent-dark dark:hover:bg-[#2a78d6]"
-                >
-                    <AppIcon name="upload" class="h-4 w-4" />
-                    Upload Dataset
-                </RouterLink>
-            </div>
         </aside>
 
         <!-- Area konten -->
@@ -178,6 +184,7 @@ watch(() => route.fullPath, () => (sidebarOpen.value = false));
                     <button
                         type="button"
                         class="focus-ring relative rounded-lg p-2 text-ink-2 hover:text-ink dark:text-ink-2-dark dark:hover:text-ink-dark"
+                        @click="toast.push('Belum ada notifikasi baru.', 'info')"
                     >
                         <AppIcon name="bell" class="h-[18px] w-[18px]" />
                         <span
@@ -202,5 +209,8 @@ watch(() => route.fullPath, () => (sidebarOpen.value = false));
                 </div>
             </main>
         </div>
+
+        <ToastHost />
+        <ConfirmDialog />
     </div>
 </template>

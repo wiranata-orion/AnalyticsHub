@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
@@ -11,9 +11,24 @@ import DataTable from '@/Components/UI/DataTable.vue';
 import StatusBadge from '@/Components/UI/StatusBadge.vue';
 import ChartPanel from '@/Components/Charts/ChartPanel.vue';
 import { useDatasetStore } from '@/stores/dataset';
+import { useToastStore } from '@/stores/toast';
 import { dashboard } from '@/data/placeholder';
 
 const datasetStore = useDatasetStore();
+const toast = useToastStore();
+
+// Belum ada API — jeda singkat meniru permintaan jaringan agar tombol terasa
+// hidup; nanti diganti pemanggilan ulang endpoint ringkasan.
+const isReloading = ref(false);
+
+function reload() {
+    isReloading.value = true;
+
+    setTimeout(() => {
+        isReloading.value = false;
+        toast.push('Ringkasan dashboard diperbarui.');
+    }, 900);
+}
 
 const { stats, activityTrend, jobDistribution, insights } = dashboard;
 const recentDatasets = computed(() => datasetStore.items.slice(0, 4));
@@ -42,13 +57,8 @@ const INSIGHT_TONES = {
             description="Ringkasan dataset, analisis yang berjalan, dan temuan terbaru."
         >
             <template #actions>
-                <AppButton icon="refresh">Muat Ulang</AppButton>
-                <AppButton
-                    variant="primary"
-                    icon="upload"
-                    :to="{ name: 'datasets.create' }"
-                >
-                    Upload Dataset
+                <AppButton icon="refresh" :disabled="isReloading" @click="reload">
+                    {{ isReloading ? 'Memuat…' : 'Muat Ulang' }}
                 </AppButton>
             </template>
         </PageHeader>

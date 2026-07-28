@@ -9,6 +9,8 @@ import AppIcon from '@/Components/UI/AppIcon.vue';
 import StatTile from '@/Components/UI/StatTile.vue';
 import StatusBadge from '@/Components/UI/StatusBadge.vue';
 import { useDatasetStore } from '@/stores/dataset';
+import { useToastStore } from '@/stores/toast';
+import { downloadCsv } from '@/Utils/exportCsv';
 
 // `id` datang dari parameter rute (`props: true` di definisi rute).
 const props = defineProps({
@@ -19,7 +21,26 @@ const props = defineProps({
 });
 
 const datasetStore = useDatasetStore();
+const toast = useToastStore();
 const dataset = computed(() => datasetStore.detail(props.id));
+
+function downloadPreview() {
+    const baseName = dataset.value.name.replace(/\.[^.]+$/, '');
+
+    downloadCsv(
+        `${baseName}_pratinjau.csv`,
+        dataset.value.preview.columns,
+        dataset.value.preview.rows,
+    );
+    toast.push('Pratinjau dataset diunduh sebagai CSV.');
+}
+
+function showAllRows() {
+    toast.push(
+        'Seluruh baris baru bisa dibuka setelah backend tersambung — saat ini hanya pratinjau.',
+        'warning',
+    );
+}
 
 const NEXT_STEPS = [
     {
@@ -60,7 +81,7 @@ const NEXT_STEPS = [
             ]"
         >
             <template #actions>
-                <AppButton icon="download">Unduh</AppButton>
+                <AppButton icon="download" @click="downloadPreview">Unduh</AppButton>
                 <AppButton
                     variant="primary"
                     icon="play"
@@ -99,7 +120,9 @@ const NEXT_STEPS = [
                     flush
                 >
                     <template #actions>
-                        <AppButton size="sm" icon="table">Lihat Semua</AppButton>
+                        <AppButton size="sm" icon="table" @click="showAllRows">
+                            Lihat Semua
+                        </AppButton>
                     </template>
 
                     <div class="overflow-x-auto">

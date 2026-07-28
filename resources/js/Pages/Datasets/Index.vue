@@ -10,8 +10,12 @@ import DataTable from '@/Components/UI/DataTable.vue';
 import StatusBadge from '@/Components/UI/StatusBadge.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import { useDatasetStore } from '@/stores/dataset';
+import { useToastStore } from '@/stores/toast';
+import { useConfirmStore } from '@/stores/confirm';
 
 const datasetStore = useDatasetStore();
+const toast = useToastStore();
+const confirm = useConfirmStore();
 
 const search = ref('');
 const statusFilter = ref('all');
@@ -51,6 +55,20 @@ const filtered = computed(() =>
 function resetFilters() {
     search.value = '';
     statusFilter.value = 'all';
+}
+
+async function removeDataset(dataset) {
+    const confirmed = await confirm.open({
+        title: 'Hapus dataset',
+        message: `Dataset "${dataset.name}" akan dihapus permanen beserta hasil analisisnya.`,
+    });
+
+    if (!confirmed) {
+        return;
+    }
+
+    datasetStore.remove(dataset.id);
+    toast.push(`Dataset "${dataset.name}" dihapus.`);
 }
 </script>
 
@@ -148,12 +166,31 @@ function resetFilters() {
                             type="button"
                             class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-status-critical"
                             title="Hapus dataset"
+                            @click="removeDataset(row)"
                         >
                             <AppIcon name="trash" class="h-4 w-4" />
+                            <span class="sr-only">Hapus {{ row.name }}</span>
                         </button>
                     </div>
                 </template>
             </DataTable>
+
+            <EmptyState
+                v-else-if="datasetStore.items.length === 0"
+                icon="datasets"
+                title="Belum ada dataset"
+                description="Unggah berkas CSV atau Excel untuk mulai dianalisis."
+            >
+                <template #action>
+                    <AppButton
+                        variant="primary"
+                        icon="upload"
+                        :to="{ name: 'datasets.create' }"
+                    >
+                        Upload Dataset
+                    </AppButton>
+                </template>
+            </EmptyState>
 
             <EmptyState
                 v-else

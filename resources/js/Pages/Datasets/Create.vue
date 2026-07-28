@@ -1,15 +1,19 @@
 <script setup>
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
 import AppButton from '@/Components/UI/AppButton.vue';
 import AppIcon from '@/Components/UI/AppIcon.vue';
+import { useDatasetStore } from '@/stores/dataset';
+import { useToastStore } from '@/stores/toast';
 
 /*
- * Halaman unggah. Pemilihan berkas dan validasi dasar sudah berjalan di klien;
- * pengirimannya menunggu endpoint REST `POST /api/datasets` yang baru bisa
- * dibuat setelah model Dataset dan storage disk ditentukan.
+ * Halaman unggah. Pemilihan berkas dan validasi dasar berjalan di klien;
+ * pengiriman ke server menunggu endpoint REST `POST /api/datasets`. Sementara
+ * itu berkas didaftarkan ke store agar seluruh alur (daftar → profiling)
+ * tetap bisa dicoba ujung ke ujung.
  */
 const ACCEPTED = ['.csv', '.xlsx', '.xls'];
 const MAX_MB = 200;
@@ -71,6 +75,38 @@ function clearFile() {
     if (fileInput.value) {
         fileInput.value.value = '';
     }
+}
+
+const router = useRouter();
+const datasetStore = useDatasetStore();
+const toast = useToastStore();
+
+function submit() {
+    if (!file.value) {
+        return;
+    }
+
+    const name = file.value.name;
+    const dataset = datasetStore.add({
+        name,
+        format: name.slice(name.lastIndexOf('.') + 1).toUpperCase(),
+        rows: '—',
+        columns: '—',
+        size: formatSize(file.value.size),
+        status: 'processing',
+        created_at: new Date().toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        }),
+        updated_at: 'baru saja',
+    });
+
+    // Simulasi antrean profiling; nanti diganti status asli dari backend.
+    setTimeout(() => datasetStore.setStatus(dataset.id, 'ready'), 4000);
+
+    toast.push(`"${name}" diunggah dan masuk antrean profiling.`);
+    router.push({ name: 'datasets.index' });
 }
 </script>
 
@@ -235,6 +271,7 @@ function clearFile() {
                                 variant="primary"
                                 icon="upload"
                                 :disabled="!file"
+                                @click="submit"
                             >
                                 Unggah &amp; Analisis
                             </AppButton>

@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
@@ -10,10 +11,42 @@ import ProgressMeter from '@/Components/UI/ProgressMeter.vue';
 import ChartPanel from '@/Components/Charts/ChartPanel.vue';
 import CorrelationHeatmap from '@/Components/Charts/CorrelationHeatmap.vue';
 import DatasetSelector from '@/Components/Datasets/DatasetSelector.vue';
+import { useToastStore } from '@/stores/toast';
+import { downloadCsv } from '@/Utils/exportCsv';
 import { profiling } from '@/data/placeholder';
 
 const { summary, columns, missingByColumn, typeDistribution, correlation } =
     profiling;
+
+const toast = useToastStore();
+const isRunning = ref(false);
+
+// Simulasi job profiling; nanti diganti pemanggilan Python engine lewat API.
+function rerunProfiling() {
+    isRunning.value = true;
+
+    setTimeout(() => {
+        isRunning.value = false;
+        toast.push('Profiling selesai dijalankan ulang.');
+    }, 1300);
+}
+
+function exportColumns() {
+    downloadCsv(
+        'profil_kolom.csv',
+        COLUMN_TABLE.map((column) => column.label),
+        columns.map((row) => [
+            row.name,
+            row.type,
+            `${row.missing.toFixed(1).replace('.', ',')}%`,
+            row.unique,
+            row.mean,
+            row.std,
+            row.outliers,
+        ]),
+    );
+    toast.push('Profil kolom diekspor sebagai CSV.');
+}
 
 const COLUMN_TABLE = [
     { key: 'name', label: 'Kolom' },
@@ -59,8 +92,13 @@ function missingVariant(percentage) {
         >
             <template #actions>
                 <DatasetSelector />
-                <AppButton variant="primary" icon="refresh">
-                    Jalankan Ulang
+                <AppButton
+                    variant="primary"
+                    icon="refresh"
+                    :disabled="isRunning"
+                    @click="rerunProfiling"
+                >
+                    {{ isRunning ? 'Menjalankan…' : 'Jalankan Ulang' }}
                 </AppButton>
             </template>
         </PageHeader>
@@ -130,7 +168,9 @@ function missingVariant(percentage) {
 
         <AppCard class="mt-4" title="Profil per Kolom" flush>
             <template #actions>
-                <AppButton size="sm" icon="download">Ekspor CSV</AppButton>
+                <AppButton size="sm" icon="download" @click="exportColumns">
+                    Ekspor CSV
+                </AppButton>
             </template>
 
             <DataTable :columns="COLUMN_TABLE" :rows="columns" row-key="name">

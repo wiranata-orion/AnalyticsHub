@@ -1,7 +1,12 @@
 <script setup>
 /*
  * Tabel generik. Kolom diberikan sebagai
- * { key, label, align?: 'left'|'right', numeric?: boolean, width?: string }.
+ * { key, label, align?: 'left'|'right', numeric?: boolean, width?: string,
+ *   wrap?: boolean }.
+ *
+ * `wrap` untuk kolom berisi teks panjang (daftar nilai, konteks baris): isinya
+ * dibungkus ke baris berikutnya alih-alih memaksa seluruh tabel menggulir ke
+ * samping.
  *
  * Sel dapat di-override lewat slot bernama `cell-<key>`, sehingga badge, tautan,
  * atau tombol aksi tidak perlu logika kondisional di dalam komponen ini.
@@ -52,10 +57,11 @@ defineProps({
                     <td
                         v-for="column in columns"
                         :key="column.key"
-                        class="whitespace-nowrap px-5 py-3 text-ink-2 dark:text-ink-2-dark"
+                        class="px-5 py-3 text-ink-2 dark:text-ink-2-dark"
                         :class="[
                             column.align === 'right' ? 'text-right' : 'text-left',
                             column.numeric ? 'tabular-nums' : '',
+                            column.wrap ? 'break-words' : 'whitespace-nowrap',
                         ]"
                     >
                         <slot :name="`cell-${column.key}`" :row="row">

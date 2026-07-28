@@ -126,106 +126,19 @@ export const cleaning = {
     },
 };
 
-export const visualization = {
-    revenueByRegion: {
-        labels: ['Kaltim', 'Jabar', 'Jatim', 'Sulsel', 'Bali', 'Sumut'],
-        series: [{ label: 'Pendapatan (juta)', data: [842, 671, 588, 431, 366, 298] }],
-    },
-
-    monthlyTrend: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul'],
-        series: [
-            { label: 'Paket A', data: [120, 138, 145, 162, 171, 189, 204] },
-            { label: 'Paket B', data: [98, 104, 96, 118, 126, 131, 142] },
-            { label: 'Paket C', data: [45, 52, 61, 58, 67, 74, 81] },
-        ],
-    },
-
-    distribution: {
-        labels: ['0–5', '6–10', '11–15', '16–20', '21–25', '26–30', '31+'],
-        series: [{ label: 'Frekuensi', data: [8420, 21340, 34980, 28110, 16720, 9840, 4210] }],
-    },
-
-    // Dibatasi 3 seri: pada scatter semua pasangan warna bersanding sekaligus,
-    // dan hanya tiga slot pertama palet yang lolos gate semua-pasangan.
-    scatter: {
-        series: [
-            { label: 'Paket A', data: [{ x: 12, y: 48 }, { x: 21, y: 84 }, { x: 14, y: 56 }, { x: 17, y: 66 }, { x: 9, y: 35 }, { x: 24, y: 95 }, { x: 19, y: 74 }] },
-            { label: 'Paket B', data: [{ x: 5, y: 19 }, { x: 9, y: 35 }, { x: 7, y: 26 }, { x: 12, y: 44 }, { x: 15, y: 58 }, { x: 4, y: 14 }, { x: 11, y: 41 }] },
-            { label: 'Paket C', data: [{ x: 3, y: 11 }, { x: 2, y: 7 }, { x: 6, y: 22 }, { x: 4, y: 15 }, { x: 8, y: 29 }, { x: 5, y: 18 }, { x: 7, y: 25 }] },
-        ],
-    },
-
-    composition: {
-        labels: ['Paket A', 'Paket B', 'Paket C'],
-        series: [{ label: 'Pangsa', data: [48, 33, 19] }],
-    },
-};
-
+/*
+ * Hanya metadata kartu algoritma. Hasil analisisnya tidak lagi berupa angka
+ * mati: halaman Data Mining menghitungnya sendiri dari baris dataset lewat
+ * `@/Utils/ml/mining` dan `@/Utils/ml/supervised`.
+ */
 export const mining = {
     algorithms: [
-        { key: 'clustering', name: 'Clustering', icon: 'mining', description: 'Kelompokkan baris serupa tanpa label. K-Means, DBSCAN, Hierarchical.', runs: 12 },
-        { key: 'classification', name: 'Classification', icon: 'profiling', description: 'Prediksi label kategori. Decision Tree, Random Forest, Naive Bayes.', runs: 8 },
-        { key: 'regression', name: 'Regression', icon: 'trendUp', description: 'Prediksi nilai kontinu. Linear, Ridge, Gradient Boosting.', runs: 6 },
-        { key: 'association', name: 'Association Rule', icon: 'datasets', description: 'Temukan pola "yang dibeli bersama". Apriori, FP-Growth.', runs: 4 },
-        { key: 'anomaly', name: 'Anomaly Detection', icon: 'warning', description: 'Deteksi baris menyimpang. Isolation Forest, LOF.', runs: 5 },
-        { key: 'timeseries', name: 'Time Series', icon: 'visualization', description: 'Analisis dan proyeksi deret waktu. ARIMA, Prophet.', runs: 3 },
-    ],
-
-    clusterPreview: {
-        series: [
-            { label: 'Cluster 1', data: [{ x: 12, y: 48 }, { x: 14, y: 56 }, { x: 11, y: 44 }, { x: 15, y: 52 }, { x: 13, y: 50 }] },
-            { label: 'Cluster 2', data: [{ x: 32, y: 22 }, { x: 35, y: 26 }, { x: 30, y: 19 }, { x: 34, y: 24 }, { x: 33, y: 21 }] },
-            { label: 'Cluster 3', data: [{ x: 22, y: 82 }, { x: 25, y: 88 }, { x: 21, y: 79 }, { x: 24, y: 85 }, { x: 23, y: 91 }] },
-        ],
-    },
-
-    associationRules: [
-        { id: 1, antecedent: 'Paket A', consequent: 'Add-on Garansi', support: '0,142', confidence: '0,681', lift: '2,41' },
-        { id: 2, antecedent: 'Paket B, Instalasi', consequent: 'Add-on Garansi', support: '0,098', confidence: '0,624', lift: '2,21' },
-        { id: 3, antecedent: 'Paket C', consequent: 'Pelatihan', support: '0,076', confidence: '0,559', lift: '1,98' },
-        { id: 4, antecedent: 'Add-on Garansi', consequent: 'Perpanjangan', support: '0,064', confidence: '0,512', lift: '1,81' },
-    ],
-};
-
-export const machineLearning = {
-    models: [
-        { id: 1, name: 'Prediksi Churn Pelanggan', algorithm: 'Random Forest', target: 'churn', metric: 'Akurasi', score: '91,4%', status: 'ready', trained_at: '27 Jul 2026' },
-        { id: 2, name: 'Estimasi Pendapatan', algorithm: 'Gradient Boosting', target: 'pendapatan', metric: 'R²', score: '0,873', status: 'ready', trained_at: '26 Jul 2026' },
-        { id: 3, name: 'Segmentasi Pelanggan', algorithm: 'K-Means (k=4)', target: '—', metric: 'Silhouette', score: '0,612', status: 'training', trained_at: '27 Jul 2026' },
-        { id: 4, name: 'Deteksi Transaksi Janggal', algorithm: 'Isolation Forest', target: '—', metric: 'Presisi', score: '0,784', status: 'failed', trained_at: '25 Jul 2026' },
-    ],
-
-    featureImportance: {
-        labels: ['tenure', 'biaya_bulanan', 'jumlah_komplain', 'metode_bayar', 'durasi_kontrak', 'usia'],
-        series: [{ label: 'Kontribusi', data: [0.28, 0.22, 0.17, 0.13, 0.11, 0.09] }],
-    },
-
-    learningCurve: {
-        labels: ['10%', '25%', '40%', '55%', '70%', '85%', '100%'],
-        series: [
-            { label: 'Akurasi latih', data: [0.82, 0.87, 0.9, 0.92, 0.93, 0.94, 0.95] },
-            { label: 'Akurasi validasi', data: [0.74, 0.8, 0.84, 0.87, 0.89, 0.9, 0.91] },
-        ],
-    },
-
-    confusionMatrix: {
-        labels: ['Bertahan', 'Churn'],
-        matrix: [
-            [8420, 312],
-            [486, 1982],
-        ],
-    },
-
-    evaluation: [
-        { label: 'Akurasi', value: '91,4%' },
-        { label: 'Presisi', value: '86,4%' },
-        { label: 'Recall', value: '80,3%' },
-        { label: 'F1-Score', value: '83,2%' },
-        { label: 'ROC-AUC', value: '0,943' },
-        { label: 'Data Latih', value: '80%' },
-        { label: 'Data Uji', value: '20%' },
-        { label: 'Waktu Latih', value: '42 dtk' },
+        { key: 'clustering', name: 'Clustering', icon: 'mining', description: 'Kelompokkan baris serupa tanpa label. K-Means, DBSCAN, Hierarchical.' },
+        { key: 'classification', name: 'Classification', icon: 'profiling', description: 'Prediksi label kategori. Decision Tree, Random Forest, Naive Bayes.' },
+        { key: 'regression', name: 'Regression', icon: 'trendUp', description: 'Prediksi nilai kontinu. Linear, Ridge, Gradient Boosting.' },
+        { key: 'association', name: 'Association Rule', icon: 'datasets', description: 'Temukan pola "yang dibeli bersama". Apriori, FP-Growth.' },
+        { key: 'anomaly', name: 'Anomaly Detection', icon: 'warning', description: 'Deteksi baris menyimpang. Isolation Forest, LOF.' },
+        { key: 'timeseries', name: 'Time Series', icon: 'visualization', description: 'Analisis dan proyeksi deret waktu. ARIMA, Prophet.' },
     ],
 };
 

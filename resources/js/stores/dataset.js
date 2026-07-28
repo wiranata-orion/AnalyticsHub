@@ -29,6 +29,33 @@ export const useDatasetStore = defineStore('dataset', () => {
         selectedId.value = Number(id);
     }
 
+    /** Daftarkan dataset baru (hasil unggahan) di urutan teratas. */
+    function add(payload) {
+        const id = Math.max(0, ...items.value.map((item) => item.id)) + 1;
+        const dataset = { id, ...payload };
+
+        items.value = [dataset, ...items.value];
+
+        return dataset;
+    }
+
+    function remove(id) {
+        items.value = items.value.filter((item) => item.id !== Number(id));
+
+        // Dataset aktif ikut terhapus? Pindah ke yang pertama tersisa.
+        if (selectedId.value === Number(id)) {
+            selectedId.value = items.value[0]?.id ?? null;
+        }
+    }
+
+    function setStatus(id, status) {
+        const dataset = items.value.find((item) => item.id === Number(id));
+
+        if (dataset) {
+            dataset.status = status;
+        }
+    }
+
     function findById(id) {
         return items.value.find((item) => item.id === Number(id)) ?? null;
     }
@@ -53,6 +80,9 @@ export const useDatasetStore = defineStore('dataset', () => {
         readyItems,
         isLoading,
         select,
+        add,
+        remove,
+        setStatus,
         findById,
         detail,
     };
