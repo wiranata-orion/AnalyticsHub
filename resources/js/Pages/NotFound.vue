@@ -1,28 +1,25 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppButton from '@/Components/UI/AppButton.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
 </script>
 
 <template>
-    <AppLayout>
-        <AppCard flush>
-            <EmptyState
-                icon="search"
-                title="Halaman tidak ditemukan"
-                description="Alamat yang Anda buka tidak tersedia atau sudah dipindahkan."
-            >
-                <template #action>
-                    <AppButton
-                        variant="primary"
-                        icon="dashboard"
-                        :to="{ name: 'dashboard' }"
-                    >
-                        Kembali ke Dashboard
-                    </AppButton>
-                </template>
-            </EmptyState>
-        </AppCard>
-    </AppLayout>
+    <AppCard flush>
+        <EmptyState
+            icon="search"
+            title="Halaman tidak ditemukan"
+            description="Alamat yang Anda buka tidak tersedia atau sudah dipindahkan."
+        >
+            <template #action>
+                <AppButton
+                    variant="primary"
+                    icon="dashboard"
+                    :to="{ name: 'dashboard' }"
+                >
+                    Kembali ke Dashboard
+                </AppButton>
+            </template>
+        </EmptyState>
+    </AppCard>
 </template>

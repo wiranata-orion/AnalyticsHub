@@ -1,21 +1,24 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import { datasetPreview, datasets as placeholderDatasets } from '@/data/placeholder';
+import { api } from '@/Utils/api';
 
 /*
  * Dataset aktif dibagikan lintas halaman.
  *
- * Profiling, Cleaning, Visualisasi, Mining, dan Machine Learning semuanya
- * beroperasi pada satu dataset yang sama. Tanpa store, tiap halaman menyimpan
- * pilihannya sendiri dan pengguna harus memilih ulang setiap berpindah menu.
+ * Profiling, EDA, statistik, mining, dan machine learning semuanya beroperasi
+ * pada satu dataset yang sama. Tanpa store, tiap halaman menyimpan pilihannya
+ * sendiri dan pengguna harus memilih ulang setiap berpindah menu.
  *
- * Saat REST API tersedia, `fetchAll()` diganti panggilan Axios — komponen yang
- * memakai store ini tidak perlu berubah.
+ * Sumber datanya kini REST API — daftar dari GET /api/datasets, detail kolom
+ * (hasil profiling) dari GET /api/datasets/{id}. Detail di-cache per id karena
+ * banyak halaman membutuhkannya untuk mengisi pilihan kolom.
  */
 export const useDatasetStore = defineStore('dataset', () => {
-    const items = ref(placeholderDatasets);
-    const selectedId = ref(placeholderDatasets[0]?.id ?? null);
+    const items = ref([]);
+    const selectedId = ref(null);
     const isLoading = ref(false);
+    const loadError = ref(null);
+    const details = ref({});
 
     const selected = computed(
         () => items.value.find((item) => item.id === selectedId.value) ?? null,
@@ -25,65 +28,103 @@ export const useDatasetStore = defineStore('dataset', () => {
         items.value.filter((item) => item.status === 'ready'),
     );
 
-    function select(id) {
+    /** Detail (termasuk kolom profiling) dataset terpilih, bila sudah dimuat. */
+    const selectedDetail = computed(
+        () => details.value[selectedId.value] ?? null,
+    );
+
+    const columns = computed(() => selectedDetail.value?.columns ?? []);
+
+    async function fetchAll() {
+        isLoading.value = true;
+        loadError.value = null;
+
+        try {
+            const response = await api.datasets.list();
+
+            items.value = response.data;
+
+            // Pilihan sebelumnya dipertahankan bila datasetnya masih ada.
+            if (!items.value.some((item) => item.id === selectedId.value)) {
+                selectedId.value = readyItems.value[0]?.id ?? items.value[0]?.id ?? null;
+            }
+
+            if (selectedId.value) {
+                await fetchDetail(selectedId.value);
+            }
+        } catch (error) {
+            loadError.value = error.message;
+        } finally {
+            isLoading.value = false;
+        }
+    }
+
+    async function fetchDetail(id, force = false) {
+        if (!id) {
+            return null;
+        }
+
+        if (!force && details.value[id]) {
+            return details.value[id];
+        }
+
+        const response = await api.datasets.show(id);
+
+        details.value = { ...details.value, [id]: response.data };
+
+        return response.data;
+    }
+
+    async function select(id) {
         selectedId.value = Number(id);
+        await fetchDetail(selectedId.value);
     }
 
-    /** Daftarkan dataset baru (hasil unggahan) di urutan teratas. */
-    function add(payload) {
-        const id = Math.max(0, ...items.value.map((item) => item.id)) + 1;
-        const dataset = { id, ...payload };
+    async function remove(id) {
+        await api.datasets.remove(id);
 
-        items.value = [dataset, ...items.value];
-
-        return dataset;
-    }
-
-    function remove(id) {
         items.value = items.value.filter((item) => item.id !== Number(id));
+        delete details.value[Number(id)];
 
-        // Dataset aktif ikut terhapus? Pindah ke yang pertama tersisa.
         if (selectedId.value === Number(id)) {
             selectedId.value = items.value[0]?.id ?? null;
+
+            if (selectedId.value) {
+                await fetchDetail(selectedId.value);
+            }
         }
     }
 
-    function setStatus(id, status) {
-        const dataset = items.value.find((item) => item.id === Number(id));
+    async function upload(file, options, onProgress) {
+        const response = await api.datasets.upload(file, options, onProgress);
+        const dataset = response.data;
 
-        if (dataset) {
-            dataset.status = status;
-        }
+        details.value = { ...details.value, [dataset.id]: dataset };
+        await fetchAll();
+        selectedId.value = dataset.id;
+
+        return dataset;
     }
 
     function findById(id) {
         return items.value.find((item) => item.id === Number(id)) ?? null;
     }
 
-    /** Detail satu dataset beserta pratinjau isinya. */
-    function detail(id) {
-        const dataset = findById(id) ?? items.value[0];
-
-        return {
-            ...dataset,
-            delimiter: ',',
-            encoding: 'UTF-8',
-            uploaded_by: 'Winata',
-            preview: datasetPreview,
-        };
-    }
-
     return {
         items,
         selectedId,
         selected,
+        selectedDetail,
+        columns,
         readyItems,
         isLoading,
+        loadError,
+        details,
+        fetchAll,
+        fetchDetail,
         select,
-        add,
         remove,
-        setStatus,
+        upload,
         findById,
-        detail,
     };
 });

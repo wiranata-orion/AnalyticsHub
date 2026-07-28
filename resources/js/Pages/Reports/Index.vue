@@ -1,6 +1,5 @@
 <script setup>
 import { computed, ref } from 'vue';
-import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
 import AppButton from '@/Components/UI/AppButton.vue';
@@ -146,175 +145,173 @@ function previewReport(report) {
 </script>
 
 <template>
-    <AppLayout>
-        <PageHeader
-            title="Laporan"
-            description="Hasil analisis yang dirangkum menjadi dokumen siap dibagikan."
-            :breadcrumbs="[
-                { label: 'Dashboard', to: { name: 'dashboard' } },
-                { label: 'Laporan' },
-            ]"
-        >
-            <template #actions>
-                <DatasetSelector />
-                <AppButton variant="primary" icon="plus" @click="createReport()">
-                    Buat Laporan
-                </AppButton>
-            </template>
-        </PageHeader>
+    <PageHeader
+        title="Laporan"
+        description="Hasil analisis yang dirangkum menjadi dokumen siap dibagikan."
+        :breadcrumbs="[
+            { label: 'Dashboard', to: { name: 'dashboard' } },
+            { label: 'Laporan' },
+        ]"
+    >
+        <template #actions>
+            <DatasetSelector />
+            <AppButton variant="primary" icon="plus" @click="createReport()">
+                Buat Laporan
+            </AppButton>
+        </template>
+    </PageHeader>
 
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div class="space-y-3 lg:col-span-2">
-                <!-- Cakupan daftar: dataset aktif saja, atau seluruh dataset -->
-                <div class="flex flex-wrap items-center gap-3">
-                    <div
-                        class="flex items-center gap-0.5 rounded-lg border border-hairline p-0.5 dark:border-hairline-dark"
-                        role="group"
-                        aria-label="Saring dataset"
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div class="space-y-3 lg:col-span-2">
+            <!-- Cakupan daftar: dataset aktif saja, atau seluruh dataset -->
+            <div class="flex flex-wrap items-center gap-3">
+                <div
+                    class="flex items-center gap-0.5 rounded-lg border border-hairline p-0.5 dark:border-hairline-dark"
+                    role="group"
+                    aria-label="Saring dataset"
+                >
+                    <button
+                        v-for="option in [
+                            { value: 'selected', label: 'Dataset terpilih' },
+                            { value: 'all', label: 'Semua dataset' },
+                        ]"
+                        :key="option.value"
+                        type="button"
+                        class="focus-ring rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+                        :class="
+                            scope === option.value
+                                ? 'bg-plane text-ink dark:bg-raised-dark dark:text-ink-dark'
+                                : 'text-ink-3 hover:text-ink dark:hover:text-ink-dark'
+                        "
+                        :aria-pressed="scope === option.value"
+                        @click="scope = option.value"
                     >
-                        <button
-                            v-for="option in [
-                                { value: 'selected', label: 'Dataset terpilih' },
-                                { value: 'all', label: 'Semua dataset' },
-                            ]"
-                            :key="option.value"
-                            type="button"
-                            class="focus-ring rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-                            :class="
-                                scope === option.value
-                                    ? 'bg-plane text-ink dark:bg-raised-dark dark:text-ink-dark'
-                                    : 'text-ink-3 hover:text-ink dark:hover:text-ink-dark'
-                            "
-                            :aria-pressed="scope === option.value"
-                            @click="scope = option.value"
-                        >
-                            {{ option.label }}
-                        </button>
-                    </div>
+                        {{ option.label }}
+                    </button>
+                </div>
 
-                    <p class="ml-auto text-xs tabular-nums text-ink-3">
-                        {{ visibleReports.length }} dari
-                        {{ reportList.length }} laporan
+                <p class="ml-auto text-xs tabular-nums text-ink-3">
+                    {{ visibleReports.length }} dari
+                    {{ reportList.length }} laporan
+                </p>
+            </div>
+
+            <AppCard v-if="visibleReports.length === 0" flush>
+                <EmptyState
+                    icon="reports"
+                    :title="
+                        reportList.length === 0
+                            ? 'Belum ada laporan'
+                            : 'Belum ada laporan untuk dataset ini'
+                    "
+                    :description="
+                        reportList.length === 0
+                            ? 'Buat laporan baru dari tombol di atas atau pilih salah satu template.'
+                            : `Belum ada laporan yang dibuat dari ${datasetStore.selected?.name ?? 'dataset ini'}. Pilih dataset lain, atau lihat semua dataset.`
+                    "
+                >
+                    <template #action>
+                        <AppButton
+                            variant="primary"
+                            icon="plus"
+                            @click="createReport()"
+                        >
+                            Buat Laporan
+                        </AppButton>
+                    </template>
+                </EmptyState>
+            </AppCard>
+
+            <article
+                v-for="report in visibleReports"
+                :key="report.id"
+                class="flex flex-wrap items-center gap-4 rounded-xl border border-hairline bg-surface p-4 transition-colors hover:bg-plane dark:border-hairline-dark dark:bg-surface-dark dark:hover:bg-raised-dark/60"
+            >
+                <span
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-plane text-ink-3 dark:bg-raised-dark"
+                >
+                    <AppIcon name="document" class="h-5 w-5" />
+                </span>
+
+                <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium text-ink dark:text-ink-dark">
+                        {{ report.title }}
+                    </p>
+                    <p class="mt-0.5 truncate text-xs text-ink-3">
+                        {{ report.dataset }} · {{ report.created_at }} ·
+                        {{ report.size }}
                     </p>
                 </div>
 
-                <AppCard v-if="visibleReports.length === 0" flush>
-                    <EmptyState
-                        icon="reports"
-                        :title="
-                            reportList.length === 0
-                                ? 'Belum ada laporan'
-                                : 'Belum ada laporan untuk dataset ini'
-                        "
-                        :description="
-                            reportList.length === 0
-                                ? 'Buat laporan baru dari tombol di atas atau pilih salah satu template.'
-                                : `Belum ada laporan yang dibuat dari ${datasetStore.selected?.name ?? 'dataset ini'}. Pilih dataset lain, atau lihat semua dataset.`
-                        "
+                <div class="flex shrink-0 items-center gap-2">
+                    <AppBadge>{{ report.type }}</AppBadge>
+                    <AppBadge>{{ report.format }}</AppBadge>
+                    <StatusBadge :status="report.status" />
+                </div>
+
+                <div class="flex shrink-0 items-center gap-1">
+                    <button
+                        type="button"
+                        class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-ink dark:hover:text-ink-dark"
+                        title="Pratinjau"
+                        :disabled="report.status !== 'ready'"
+                        :class="report.status !== 'ready' ? 'opacity-40' : ''"
+                        @click="previewReport(report)"
                     >
-                        <template #action>
-                            <AppButton
-                                variant="primary"
-                                icon="plus"
-                                @click="createReport()"
-                            >
-                                Buat Laporan
-                            </AppButton>
-                        </template>
-                    </EmptyState>
-                </AppCard>
-
-                <article
-                    v-for="report in visibleReports"
-                    :key="report.id"
-                    class="flex flex-wrap items-center gap-4 rounded-xl border border-hairline bg-surface p-4 transition-colors hover:bg-plane dark:border-hairline-dark dark:bg-surface-dark dark:hover:bg-raised-dark/60"
-                >
-                    <span
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-plane text-ink-3 dark:bg-raised-dark"
+                        <AppIcon name="eye" class="h-4 w-4" />
+                        <span class="sr-only">Pratinjau {{ report.title }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-ink dark:hover:text-ink-dark"
+                        title="Unduh"
+                        :disabled="report.status !== 'ready'"
+                        :class="report.status !== 'ready' ? 'opacity-40' : ''"
+                        @click="downloadReport(report)"
                     >
-                        <AppIcon name="document" class="h-5 w-5" />
-                    </span>
-
-                    <div class="min-w-0 flex-1">
-                        <p class="truncate text-sm font-medium text-ink dark:text-ink-dark">
-                            {{ report.title }}
-                        </p>
-                        <p class="mt-0.5 truncate text-xs text-ink-3">
-                            {{ report.dataset }} · {{ report.created_at }} ·
-                            {{ report.size }}
-                        </p>
-                    </div>
-
-                    <div class="flex shrink-0 items-center gap-2">
-                        <AppBadge>{{ report.type }}</AppBadge>
-                        <AppBadge>{{ report.format }}</AppBadge>
-                        <StatusBadge :status="report.status" />
-                    </div>
-
-                    <div class="flex shrink-0 items-center gap-1">
-                        <button
-                            type="button"
-                            class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-ink dark:hover:text-ink-dark"
-                            title="Pratinjau"
-                            :disabled="report.status !== 'ready'"
-                            :class="report.status !== 'ready' ? 'opacity-40' : ''"
-                            @click="previewReport(report)"
-                        >
-                            <AppIcon name="eye" class="h-4 w-4" />
-                            <span class="sr-only">Pratinjau {{ report.title }}</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-ink dark:hover:text-ink-dark"
-                            title="Unduh"
-                            :disabled="report.status !== 'ready'"
-                            :class="report.status !== 'ready' ? 'opacity-40' : ''"
-                            @click="downloadReport(report)"
-                        >
-                            <AppIcon name="download" class="h-4 w-4" />
-                            <span class="sr-only">Unduh {{ report.title }}</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-status-critical"
-                            title="Hapus"
-                            @click="removeReport(report)"
-                        >
-                            <AppIcon name="trash" class="h-4 w-4" />
-                            <span class="sr-only">Hapus {{ report.title }}</span>
-                        </button>
-                    </div>
-                </article>
-            </div>
-
-            <AppCard title="Template Laporan" flush>
-                <ul>
-                    <li
-                        v-for="template in TEMPLATES"
-                        :key="template.name"
-                        class="border-b border-hairline last:border-0 dark:border-hairline-dark"
+                        <AppIcon name="download" class="h-4 w-4" />
+                        <span class="sr-only">Unduh {{ report.title }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-status-critical"
+                        title="Hapus"
+                        @click="removeReport(report)"
                     >
-                        <button
-                            type="button"
-                            class="focus-ring flex w-full gap-3 px-5 py-3.5 text-left transition-colors hover:bg-plane dark:hover:bg-raised-dark/60"
-                            @click="createReport(template)"
-                        >
-                            <AppIcon
-                                :name="template.icon"
-                                class="mt-0.5 h-[18px] w-[18px] shrink-0 text-accent dark:text-accent-dark"
-                            />
-                            <div class="min-w-0">
-                                <p class="text-sm font-medium text-ink dark:text-ink-dark">
-                                    {{ template.name }}
-                                </p>
-                                <p class="mt-0.5 text-xs text-ink-2 dark:text-ink-2-dark">
-                                    {{ template.description }}
-                                </p>
-                            </div>
-                        </button>
-                    </li>
-                </ul>
-            </AppCard>
+                        <AppIcon name="trash" class="h-4 w-4" />
+                        <span class="sr-only">Hapus {{ report.title }}</span>
+                    </button>
+                </div>
+            </article>
         </div>
-    </AppLayout>
+
+        <AppCard title="Template Laporan" flush>
+            <ul>
+                <li
+                    v-for="template in TEMPLATES"
+                    :key="template.name"
+                    class="border-b border-hairline last:border-0 dark:border-hairline-dark"
+                >
+                    <button
+                        type="button"
+                        class="focus-ring flex w-full gap-3 px-5 py-3.5 text-left transition-colors hover:bg-plane dark:hover:bg-raised-dark/60"
+                        @click="createReport(template)"
+                    >
+                        <AppIcon
+                            :name="template.icon"
+                            class="mt-0.5 h-[18px] w-[18px] shrink-0 text-accent dark:text-accent-dark"
+                        />
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-ink dark:text-ink-dark">
+                                {{ template.name }}
+                            </p>
+                            <p class="mt-0.5 text-xs text-ink-2 dark:text-ink-2-dark">
+                                {{ template.description }}
+                            </p>
+                        </div>
+                    </button>
+                </li>
+            </ul>
+        </AppCard>
+    </div>
 </template>

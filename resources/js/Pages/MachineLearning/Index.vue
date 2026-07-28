@@ -1,6 +1,5 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
 import AppButton from '@/Components/UI/AppButton.vue';
@@ -334,512 +333,510 @@ function runPrediction() {
 </script>
 
 <template>
-    <AppLayout>
-        <PageHeader
-            title="Machine Learning"
-            description="Latih model dari dataset yang sudah dibersihkan, tinjau evaluasinya, lalu pakai untuk memprediksi dataset lain."
-            :breadcrumbs="[
-                { label: 'Dashboard', to: { name: 'dashboard' } },
-                { label: 'Machine Learning' },
-            ]"
-        >
-            <template #actions>
-                <DatasetSelector />
-                <AppButton
-                    variant="primary"
-                    :icon="trainerOpen ? 'close' : 'plus'"
-                    @click="trainerOpen = !trainerOpen"
+    <PageHeader
+        title="Machine Learning"
+        description="Latih model dari dataset yang sudah dibersihkan, tinjau evaluasinya, lalu pakai untuk memprediksi dataset lain."
+        :breadcrumbs="[
+            { label: 'Dashboard', to: { name: 'dashboard' } },
+            { label: 'Machine Learning' },
+        ]"
+    >
+        <template #actions>
+            <DatasetSelector />
+            <AppButton
+                variant="primary"
+                :icon="trainerOpen ? 'close' : 'plus'"
+                @click="trainerOpen = !trainerOpen"
+            >
+                {{ trainerOpen ? 'Tutup Formulir' : 'Latih Model' }}
+            </AppButton>
+        </template>
+    </PageHeader>
+
+    <!-- Train Model -->
+    <AppCard
+        v-if="trainerOpen"
+        class="mb-4"
+        title="Latih Model Baru"
+        :subtitle="`Dataset: ${datasetStore.selected?.name ?? '—'} · ${profile.rowCount.toLocaleString('id-ID')} baris`"
+    >
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+                <label
+                    for="model-name"
+                    class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
                 >
-                    {{ trainerOpen ? 'Tutup Formulir' : 'Latih Model' }}
-                </AppButton>
-            </template>
-        </PageHeader>
-
-        <!-- Train Model -->
-        <AppCard
-            v-if="trainerOpen"
-            class="mb-4"
-            title="Latih Model Baru"
-            :subtitle="`Dataset: ${datasetStore.selected?.name ?? '—'} · ${profile.rowCount.toLocaleString('id-ID')} baris`"
-        >
-            <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div>
-                    <label
-                        for="model-name"
-                        class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                    >
-                        Nama Model (opsional)
-                    </label>
-                    <input
-                        id="model-name"
-                        v-model="form.name"
-                        type="text"
-                        placeholder="Mengikuti target yang dipilih"
-                        class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane px-3 text-sm text-ink placeholder:text-ink-3 focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
-                    />
-                </div>
-
-                <div>
-                    <label
-                        for="model-target"
-                        class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                    >
-                        Target
-                    </label>
-                    <select
-                        id="model-target"
-                        v-model="form.target"
-                        class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
-                    >
-                        <option
-                            v-for="column in targetOptions"
-                            :key="column.name"
-                            :value="column.name"
-                        >
-                            {{ column.name }} ({{ column.type }})
-                        </option>
-                    </select>
-                </div>
-
-                <div>
-                    <label
-                        for="model-algorithm"
-                        class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                    >
-                        Algoritma
-                    </label>
-                    <select
-                        id="model-algorithm"
-                        v-model="form.algorithm"
-                        class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
-                    >
-                        <option
-                            v-for="option in algorithmOptions"
-                            :key="option.value"
-                            :value="option.value"
-                        >
-                            {{ option.label }}
-                        </option>
-                    </select>
-                </div>
+                    Nama Model (opsional)
+                </label>
+                <input
+                    id="model-name"
+                    v-model="form.name"
+                    type="text"
+                    placeholder="Mengikuti target yang dipilih"
+                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane px-3 text-sm text-ink placeholder:text-ink-3 focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                />
             </div>
 
-            <div class="mt-4">
-                <p class="mb-2 text-xs font-medium text-ink-2 dark:text-ink-2-dark">
-                    Fitur ({{ form.features.length }} dari {{ featureOptions.length }} dipilih)
-                </p>
-
-                <div class="flex flex-wrap gap-2">
-                    <button
-                        v-for="column in featureOptions"
+            <div>
+                <label
+                    for="model-target"
+                    class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                >
+                    Target
+                </label>
+                <select
+                    id="model-target"
+                    v-model="form.target"
+                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                >
+                    <option
+                        v-for="column in targetOptions"
                         :key="column.name"
-                        type="button"
-                        class="focus-ring rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset transition-colors"
-                        :class="
-                            form.features.includes(column.name)
-                                ? 'bg-accent text-white ring-accent dark:bg-accent-dark dark:ring-accent-dark'
-                                : 'text-ink-2 ring-hairline hover:bg-plane dark:text-ink-2-dark dark:ring-hairline-dark dark:hover:bg-raised-dark'
-                        "
-                        :aria-pressed="form.features.includes(column.name)"
-                        @click="toggleFeature(column.name)"
+                        :value="column.name"
                     >
-                        {{ column.name }}
+                        {{ column.name }} ({{ column.type }})
+                    </option>
+                </select>
+            </div>
+
+            <div>
+                <label
+                    for="model-algorithm"
+                    class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                >
+                    Algoritma
+                </label>
+                <select
+                    id="model-algorithm"
+                    v-model="form.algorithm"
+                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                >
+                    <option
+                        v-for="option in algorithmOptions"
+                        :key="option.value"
+                        :value="option.value"
+                    >
+                        {{ option.label }}
+                    </option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <p class="mb-2 text-xs font-medium text-ink-2 dark:text-ink-2-dark">
+                Fitur ({{ form.features.length }} dari {{ featureOptions.length }} dipilih)
+            </p>
+
+            <div class="flex flex-wrap gap-2">
+                <button
+                    v-for="column in featureOptions"
+                    :key="column.name"
+                    type="button"
+                    class="focus-ring rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset transition-colors"
+                    :class="
+                        form.features.includes(column.name)
+                            ? 'bg-accent text-white ring-accent dark:bg-accent-dark dark:ring-accent-dark'
+                            : 'text-ink-2 ring-hairline hover:bg-plane dark:text-ink-2-dark dark:ring-hairline-dark dark:hover:bg-raised-dark'
+                    "
+                    :aria-pressed="form.features.includes(column.name)"
+                    @click="toggleFeature(column.name)"
+                >
+                    {{ column.name }}
+                </button>
+            </div>
+        </div>
+
+        <template #footer>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-xs text-ink-3">
+                    {{
+                        modelKind === 'regression'
+                            ? 'Target numerik — model regresi, dievaluasi dengan R², RMSE, dan MAE.'
+                            : 'Target kategorikal — model klasifikasi, dievaluasi dengan akurasi, presisi, recall, dan F1.'
+                    }}
+                    20% data disisihkan sebagai data uji.
+                </p>
+                <AppButton variant="primary" icon="play" @click="submitTraining">
+                    Latih Model
+                </AppButton>
+            </div>
+        </template>
+    </AppCard>
+
+    <!-- Saved Models -->
+    <AppCard
+        title="Model Tersimpan"
+        subtitle="Model tetap tersimpan saat berpindah menu dan bisa dipakai ulang tanpa training ulang."
+        flush
+    >
+        <DataTable
+            v-if="modelStore.items.length"
+            :columns="MODEL_COLUMNS"
+            :rows="modelStore.items"
+        >
+            <template #cell-name="{ row }">
+                <span class="flex items-center gap-2">
+                    <span class="font-medium text-ink dark:text-ink-dark">
+                        {{ row.name }}
+                    </span>
+                    <AppBadge v-if="row.id === modelStore.selectedId" variant="info">
+                        Ditampilkan
+                    </AppBadge>
+                </span>
+            </template>
+
+            <template #cell-score="{ row }">
+                <span class="whitespace-nowrap">
+                    <span class="text-ink-3">{{ row.metric }}</span>
+                    <span class="ml-1 font-medium tabular-nums text-ink dark:text-ink-dark">
+                        {{ row.score }}
+                    </span>
+                </span>
+            </template>
+
+            <template #cell-status="{ row }">
+                <StatusBadge :status="row.status" />
+            </template>
+
+            <template #cell-actions="{ row }">
+                <div class="flex items-center justify-end gap-1">
+                    <button
+                        type="button"
+                        class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-ink dark:hover:text-ink-dark"
+                        title="Tampilkan evaluasi"
+                        @click="modelStore.select(row.id)"
+                    >
+                        <AppIcon name="eye" class="h-4 w-4" />
+                        <span class="sr-only">Tampilkan evaluasi {{ row.name }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-status-critical"
+                        title="Hapus model"
+                        @click="removeModel(row)"
+                    >
+                        <AppIcon name="trash" class="h-4 w-4" />
+                        <span class="sr-only">Hapus {{ row.name }}</span>
                     </button>
                 </div>
-            </div>
-
-            <template #footer>
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <p class="text-xs text-ink-3">
-                        {{
-                            modelKind === 'regression'
-                                ? 'Target numerik — model regresi, dievaluasi dengan R², RMSE, dan MAE.'
-                                : 'Target kategorikal — model klasifikasi, dievaluasi dengan akurasi, presisi, recall, dan F1.'
-                        }}
-                        20% data disisihkan sebagai data uji.
-                    </p>
-                    <AppButton variant="primary" icon="play" @click="submitTraining">
-                        Latih Model
-                    </AppButton>
-                </div>
             </template>
-        </AppCard>
+        </DataTable>
 
-        <!-- Saved Models -->
-        <AppCard
-            title="Model Tersimpan"
-            subtitle="Model tetap tersimpan saat berpindah menu dan bisa dipakai ulang tanpa training ulang."
-            flush
+        <EmptyState
+            v-else
+            icon="ml"
+            title="Belum ada model"
+            description="Gunakan tombol Latih Model untuk memilih target, fitur, dan algoritma, lalu melatih model pertama."
         >
-            <DataTable
-                v-if="modelStore.items.length"
-                :columns="MODEL_COLUMNS"
-                :rows="modelStore.items"
-            >
-                <template #cell-name="{ row }">
-                    <span class="flex items-center gap-2">
-                        <span class="font-medium text-ink dark:text-ink-dark">
-                            {{ row.name }}
-                        </span>
-                        <AppBadge v-if="row.id === modelStore.selectedId" variant="info">
-                            Ditampilkan
-                        </AppBadge>
-                    </span>
-                </template>
+            <template #action>
+                <AppButton variant="primary" icon="plus" @click="trainerOpen = true">
+                    Latih Model
+                </AppButton>
+            </template>
+        </EmptyState>
+    </AppCard>
 
-                <template #cell-score="{ row }">
-                    <span class="whitespace-nowrap">
-                        <span class="text-ink-3">{{ row.metric }}</span>
-                        <span class="ml-1 font-medium tabular-nums text-ink dark:text-ink-dark">
-                            {{ row.score }}
-                        </span>
-                    </span>
-                </template>
-
-                <template #cell-status="{ row }">
-                    <StatusBadge :status="row.status" />
-                </template>
-
-                <template #cell-actions="{ row }">
-                    <div class="flex items-center justify-end gap-1">
-                        <button
-                            type="button"
-                            class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-ink dark:hover:text-ink-dark"
-                            title="Tampilkan evaluasi"
-                            @click="modelStore.select(row.id)"
-                        >
-                            <AppIcon name="eye" class="h-4 w-4" />
-                            <span class="sr-only">Tampilkan evaluasi {{ row.name }}</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="focus-ring rounded-md p-1.5 text-ink-3 transition-colors hover:text-status-critical"
-                            title="Hapus model"
-                            @click="removeModel(row)"
-                        >
-                            <AppIcon name="trash" class="h-4 w-4" />
-                            <span class="sr-only">Hapus {{ row.name }}</span>
-                        </button>
-                    </div>
-                </template>
-            </DataTable>
-
-            <EmptyState
-                v-else
-                icon="ml"
-                title="Belum ada model"
-                description="Gunakan tombol Latih Model untuk memilih target, fitur, dan algoritma, lalu melatih model pertama."
-            >
-                <template #action>
-                    <AppButton variant="primary" icon="plus" @click="trainerOpen = true">
-                        Latih Model
-                    </AppButton>
-                </template>
-            </EmptyState>
-        </AppCard>
-
-        <!-- Model Evaluation -->
-        <template v-if="selected">
-            <div class="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 class="text-sm font-semibold text-ink dark:text-ink-dark">
-                    Evaluasi Model
-                </h2>
-                <p class="text-xs text-ink-3">
-                    {{ selected.name }} · {{ selected.algorithm }} · target
-                    {{ selected.target }}
-                </p>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <ChartPanel
-                    v-if="importanceChart"
-                    title="Feature Importance"
-                    :subtitle="
-                        selected.kind === 'classification'
-                            ? 'Akurasi saat model dilatih dengan satu fitur saja'
-                            : 'Besar koefisien setelah dibakukan dengan simpangan baku fitur'
-                    "
-                    type="bar"
-                    horizontal
-                    :labels="importanceChart.labels"
-                    :series="importanceChart.series"
-                    :height="280"
-                />
-
-                <ChartPanel
-                    v-if="engine.learningCurve"
-                    title="Learning Curve"
-                    subtitle="Akurasi terhadap proporsi data latih"
-                    type="line"
-                    :labels="engine.learningCurve.labels"
-                    :series="engine.learningCurve.series"
-                    :height="280"
-                />
-
-                <ChartPanel
-                    v-else-if="engine.scatter"
-                    title="Prediksi vs Aktual"
-                    subtitle="Titik ideal berada di garis diagonal"
-                    type="scatter"
-                    :series="[{ label: 'Baris data uji', data: engine.scatter }]"
-                    :height="280"
-                />
-            </div>
-
-            <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <AppCard
-                    v-if="matrixCells"
-                    title="Confusion Matrix"
-                    subtitle="Prediksi model pada data uji"
-                >
-                    <!-- Lebar kolom dibagi rata lewat `table-fixed` supaya
-                         matriks selalu muat di dalam kartunya, berapa pun jumlah
-                         kelasnya, dan tidak perlu digulir ke samping. -->
-                    <table
-                        class="w-full table-fixed border-separate border-spacing-1 text-sm"
-                    >
-                        <colgroup>
-                            <col style="width: 26%" />
-                            <col v-for="label in engine.labels" :key="label" />
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th class="p-1" />
-                                <th
-                                    :colspan="engine.labels.length"
-                                    class="pb-1 text-center text-xs font-medium text-ink-3"
-                                >
-                                    Prediksi
-                                </th>
-                            </tr>
-                            <tr>
-                                <th class="p-1" />
-                                <th
-                                    v-for="label in engine.labels"
-                                    :key="label"
-                                    class="truncate px-1 pb-1 text-center text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                                    :title="label"
-                                >
-                                    {{ label }}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(row, rowIndex) in matrixCells" :key="rowIndex">
-                                <th
-                                    class="truncate pr-2 text-right text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                                    :title="engine.labels[rowIndex]"
-                                >
-                                    {{ engine.labels[rowIndex] }}
-                                </th>
-                                <td
-                                    v-for="(cell, colIndex) in row"
-                                    :key="colIndex"
-                                    class="h-14 rounded-lg text-center font-medium tabular-nums"
-                                    :style="{
-                                        backgroundColor: cell.background,
-                                        color: cell.color,
-                                    }"
-                                >
-                                    {{ cell.value.toLocaleString('id-ID') }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <p class="mt-3 text-xs text-ink-3">
-                        Diagonal utama adalah prediksi benar. Baris = kelas sebenarnya.
-                    </p>
-                </AppCard>
-
-                <div :class="matrixCells ? 'lg:col-span-2' : 'lg:col-span-3'">
-                    <AppCard title="Ringkasan Evaluasi">
-                        <div class="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
-                            <div v-for="metric in evaluationRows" :key="metric.label">
-                                <p
-                                    class="text-xs font-medium uppercase tracking-wide text-ink-3"
-                                >
-                                    {{ metric.label }}
-                                </p>
-                                <p
-                                    class="mt-1.5 text-xl font-semibold text-ink dark:text-ink-dark"
-                                >
-                                    {{ metric.value }}
-                                </p>
-                            </div>
-                        </div>
-
-                        <template #footer>
-                            <div class="flex items-start gap-2">
-                                <AppIcon
-                                    :name="
-                                        selected.kind === 'classification'
-                                            ? engine.evaluation.accuracy >= 0.85
-                                                ? 'check'
-                                                : 'warning'
-                                            : engine.evaluation.r2 >= 0.7
-                                              ? 'check'
-                                              : 'warning'
-                                    "
-                                    class="mt-0.5 h-4 w-4 shrink-0"
-                                    :class="
-                                        (
-                                            selected.kind === 'classification'
-                                                ? engine.evaluation.accuracy >= 0.85
-                                                : engine.evaluation.r2 >= 0.7
-                                        )
-                                            ? 'text-[#006300] dark:text-status-good'
-                                            : 'text-[#8a5a00] dark:text-status-warning'
-                                    "
-                                />
-                                <p class="text-xs text-ink-2 dark:text-ink-2-dark">
-                                    Fitur yang dipakai: {{ engine.features.join(', ') }}.
-                                    Seluruh metrik dihitung dari
-                                    {{ engine.testSize }} baris uji yang tidak ikut dilatih.
-                                </p>
-                            </div>
-                        </template>
-                    </AppCard>
-                </div>
-            </div>
-
-            <ChartPanel
-                v-if="rocChart"
-                class="mt-4"
-                title="ROC Curve"
-                :subtitle="`Kelas positif: ${rocChart.positiveLabel} · AUC ${asDecimal(rocChart.auc)} — makin jauh di atas garis acuan, makin baik`"
-                type="scatter"
-                :series="rocChart.series"
-                :height="300"
-            />
-        </template>
-
-        <!-- Prediction -->
+    <!-- Model Evaluation -->
+    <template v-if="selected">
         <div class="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-sm font-semibold text-ink dark:text-ink-dark">
-                Prediksi
+                Evaluasi Model
             </h2>
             <p class="text-xs text-ink-3">
-                Jalankan model tersimpan pada dataset lain
+                {{ selected.name }} · {{ selected.algorithm }} · target
+                {{ selected.target }}
             </p>
         </div>
 
-        <AppCard
-            title="Prediksi Dataset Baru"
-            subtitle="Dataset tujuan harus memuat seluruh kolom fitur yang dipakai model."
-        >
-            <div class="grid grid-cols-1 items-end gap-4 sm:grid-cols-3">
-                <div>
-                    <label
-                        for="predict-model"
-                        class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                    >
-                        Model
-                    </label>
-                    <select
-                        id="predict-model"
-                        v-model="prediction.modelId"
-                        class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
-                    >
-                        <option
-                            v-for="model in modelStore.items"
-                            :key="model.id"
-                            :value="model.id"
-                        >
-                            {{ model.name }} ({{ model.target }})
-                        </option>
-                    </select>
-                </div>
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ChartPanel
+                v-if="importanceChart"
+                title="Feature Importance"
+                :subtitle="
+                    selected.kind === 'classification'
+                        ? 'Akurasi saat model dilatih dengan satu fitur saja'
+                        : 'Besar koefisien setelah dibakukan dengan simpangan baku fitur'
+                "
+                type="bar"
+                horizontal
+                :labels="importanceChart.labels"
+                :series="importanceChart.series"
+                :height="280"
+            />
 
-                <div>
-                    <label
-                        for="predict-dataset"
-                        class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                    >
-                        Dataset Tujuan
-                    </label>
-                    <select
-                        id="predict-dataset"
-                        v-model="prediction.datasetId"
-                        class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
-                    >
-                        <option
-                            v-for="dataset in datasetStore.items"
-                            :key="dataset.id"
-                            :value="dataset.id"
-                        >
-                            {{ dataset.name }}
-                        </option>
-                    </select>
-                </div>
+            <ChartPanel
+                v-if="engine.learningCurve"
+                title="Learning Curve"
+                subtitle="Akurasi terhadap proporsi data latih"
+                type="line"
+                :labels="engine.learningCurve.labels"
+                :series="engine.learningCurve.series"
+                :height="280"
+            />
 
-                <AppButton
-                    variant="primary"
-                    icon="play"
-                    :disabled="!modelStore.items.length"
-                    @click="runPrediction"
+            <ChartPanel
+                v-else-if="engine.scatter"
+                title="Prediksi vs Aktual"
+                subtitle="Titik ideal berada di garis diagonal"
+                type="scatter"
+                :series="[{ label: 'Baris data uji', data: engine.scatter }]"
+                :height="280"
+            />
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <AppCard
+                v-if="matrixCells"
+                title="Confusion Matrix"
+                subtitle="Prediksi model pada data uji"
+            >
+                <!-- Lebar kolom dibagi rata lewat `table-fixed` supaya
+                     matriks selalu muat di dalam kartunya, berapa pun jumlah
+                     kelasnya, dan tidak perlu digulir ke samping. -->
+                <table
+                    class="w-full table-fixed border-separate border-spacing-1 text-sm"
                 >
-                    Jalankan Prediksi
-                </AppButton>
+                    <colgroup>
+                        <col style="width: 26%" />
+                        <col v-for="label in engine.labels" :key="label" />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th class="p-1" />
+                            <th
+                                :colspan="engine.labels.length"
+                                class="pb-1 text-center text-xs font-medium text-ink-3"
+                            >
+                                Prediksi
+                            </th>
+                        </tr>
+                        <tr>
+                            <th class="p-1" />
+                            <th
+                                v-for="label in engine.labels"
+                                :key="label"
+                                class="truncate px-1 pb-1 text-center text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                                :title="label"
+                            >
+                                {{ label }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(row, rowIndex) in matrixCells" :key="rowIndex">
+                            <th
+                                class="truncate pr-2 text-right text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                                :title="engine.labels[rowIndex]"
+                            >
+                                {{ engine.labels[rowIndex] }}
+                            </th>
+                            <td
+                                v-for="(cell, colIndex) in row"
+                                :key="colIndex"
+                                class="h-14 rounded-lg text-center font-medium tabular-nums"
+                                :style="{
+                                    backgroundColor: cell.background,
+                                    color: cell.color,
+                                }"
+                            >
+                                {{ cell.value.toLocaleString('id-ID') }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p class="mt-3 text-xs text-ink-3">
+                    Diagonal utama adalah prediksi benar. Baris = kelas sebenarnya.
+                </p>
+            </AppCard>
+
+            <div :class="matrixCells ? 'lg:col-span-2' : 'lg:col-span-3'">
+                <AppCard title="Ringkasan Evaluasi">
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+                        <div v-for="metric in evaluationRows" :key="metric.label">
+                            <p
+                                class="text-xs font-medium uppercase tracking-wide text-ink-3"
+                            >
+                                {{ metric.label }}
+                            </p>
+                            <p
+                                class="mt-1.5 text-xl font-semibold text-ink dark:text-ink-dark"
+                            >
+                                {{ metric.value }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <template #footer>
+                        <div class="flex items-start gap-2">
+                            <AppIcon
+                                :name="
+                                    selected.kind === 'classification'
+                                        ? engine.evaluation.accuracy >= 0.85
+                                            ? 'check'
+                                            : 'warning'
+                                        : engine.evaluation.r2 >= 0.7
+                                          ? 'check'
+                                          : 'warning'
+                                "
+                                class="mt-0.5 h-4 w-4 shrink-0"
+                                :class="
+                                    (
+                                        selected.kind === 'classification'
+                                            ? engine.evaluation.accuracy >= 0.85
+                                            : engine.evaluation.r2 >= 0.7
+                                    )
+                                        ? 'text-[#006300] dark:text-status-good'
+                                        : 'text-[#8a5a00] dark:text-status-warning'
+                                "
+                            />
+                            <p class="text-xs text-ink-2 dark:text-ink-2-dark">
+                                Fitur yang dipakai: {{ engine.features.join(', ') }}.
+                                Seluruh metrik dihitung dari
+                                {{ engine.testSize }} baris uji yang tidak ikut dilatih.
+                            </p>
+                        </div>
+                    </template>
+                </AppCard>
+            </div>
+        </div>
+
+        <ChartPanel
+            v-if="rocChart"
+            class="mt-4"
+            title="ROC Curve"
+            :subtitle="`Kelas positif: ${rocChart.positiveLabel} · AUC ${asDecimal(rocChart.auc)} — makin jauh di atas garis acuan, makin baik`"
+            type="scatter"
+            :series="rocChart.series"
+            :height="300"
+        />
+    </template>
+
+    <!-- Prediction -->
+    <div class="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="text-sm font-semibold text-ink dark:text-ink-dark">
+            Prediksi
+        </h2>
+        <p class="text-xs text-ink-3">
+            Jalankan model tersimpan pada dataset lain
+        </p>
+    </div>
+
+    <AppCard
+        title="Prediksi Dataset Baru"
+        subtitle="Dataset tujuan harus memuat seluruh kolom fitur yang dipakai model."
+    >
+        <div class="grid grid-cols-1 items-end gap-4 sm:grid-cols-3">
+            <div>
+                <label
+                    for="predict-model"
+                    class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                >
+                    Model
+                </label>
+                <select
+                    id="predict-model"
+                    v-model="prediction.modelId"
+                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                >
+                    <option
+                        v-for="model in modelStore.items"
+                        :key="model.id"
+                        :value="model.id"
+                    >
+                        {{ model.name }} ({{ model.target }})
+                    </option>
+                </select>
             </div>
 
-            <template v-if="predictionResult" #footer>
-                <div class="space-y-4">
-                    <p class="text-xs text-ink-2 dark:text-ink-2-dark">
-                        {{ predictionResult.total.toLocaleString('id-ID') }} baris
-                        diprediksi oleh "{{ predictionResult.modelName }}" dari
-                        {{ predictionResult.datasetName }}.
-                        <template v-if="predictionResult.skipped">
-                            {{ predictionResult.skipped }} baris dilewati karena ada
-                            kolom fitur yang kosong.
-                        </template>
-                    </p>
-
-                    <div
-                        v-if="predictionResult.kind === 'classification'"
-                        class="flex flex-wrap gap-2"
+            <div>
+                <label
+                    for="predict-dataset"
+                    class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                >
+                    Dataset Tujuan
+                </label>
+                <select
+                    id="predict-dataset"
+                    v-model="prediction.datasetId"
+                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                >
+                    <option
+                        v-for="dataset in datasetStore.items"
+                        :key="dataset.id"
+                        :value="dataset.id"
                     >
-                        <AppBadge
-                            v-for="item in predictionResult.distribution"
-                            :key="item.label"
-                        >
-                            {{ item.label }}: {{ item.count }} ({{
-                                item.share.toFixed(1).replace('.', ',')
-                            }}%)
-                        </AppBadge>
-                    </div>
+                        {{ dataset.name }}
+                    </option>
+                </select>
+            </div>
 
-                    <div v-else class="flex flex-wrap gap-2">
-                        <AppBadge>
-                            Rata-rata:
-                            {{ predictionResult.average.toLocaleString('id-ID', { maximumFractionDigits: 0 }) }}
-                        </AppBadge>
-                        <AppBadge>
-                            Minimum:
-                            {{ predictionResult.min.toLocaleString('id-ID', { maximumFractionDigits: 0 }) }}
-                        </AppBadge>
-                        <AppBadge>
-                            Maksimum:
-                            {{ predictionResult.max.toLocaleString('id-ID', { maximumFractionDigits: 0 }) }}
-                        </AppBadge>
-                    </div>
+            <AppButton
+                variant="primary"
+                icon="play"
+                :disabled="!modelStore.items.length"
+                @click="runPrediction"
+            >
+                Jalankan Prediksi
+            </AppButton>
+        </div>
 
-                    <div
-                        class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark"
+        <template v-if="predictionResult" #footer>
+            <div class="space-y-4">
+                <p class="text-xs text-ink-2 dark:text-ink-2-dark">
+                    {{ predictionResult.total.toLocaleString('id-ID') }} baris
+                    diprediksi oleh "{{ predictionResult.modelName }}" dari
+                    {{ predictionResult.datasetName }}.
+                    <template v-if="predictionResult.skipped">
+                        {{ predictionResult.skipped }} baris dilewati karena ada
+                        kolom fitur yang kosong.
+                    </template>
+                </p>
+
+                <div
+                    v-if="predictionResult.kind === 'classification'"
+                    class="flex flex-wrap gap-2"
+                >
+                    <AppBadge
+                        v-for="item in predictionResult.distribution"
+                        :key="item.label"
                     >
-                        <DataTable
-                            :columns="PREDICTION_COLUMNS"
-                            :rows="predictionResult.sample"
-                        >
-                            <template #cell-prediction="{ row }">
-                                <span class="font-medium text-ink dark:text-ink-dark">
-                                    {{ row.prediction }}
-                                </span>
-                            </template>
-                        </DataTable>
-                    </div>
+                        {{ item.label }}: {{ item.count }} ({{
+                            item.share.toFixed(1).replace('.', ',')
+                        }}%)
+                    </AppBadge>
                 </div>
-            </template>
-        </AppCard>
-    </AppLayout>
+
+                <div v-else class="flex flex-wrap gap-2">
+                    <AppBadge>
+                        Rata-rata:
+                        {{ predictionResult.average.toLocaleString('id-ID', { maximumFractionDigits: 0 }) }}
+                    </AppBadge>
+                    <AppBadge>
+                        Minimum:
+                        {{ predictionResult.min.toLocaleString('id-ID', { maximumFractionDigits: 0 }) }}
+                    </AppBadge>
+                    <AppBadge>
+                        Maksimum:
+                        {{ predictionResult.max.toLocaleString('id-ID', { maximumFractionDigits: 0 }) }}
+                    </AppBadge>
+                </div>
+
+                <div
+                    class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark"
+                >
+                    <DataTable
+                        :columns="PREDICTION_COLUMNS"
+                        :rows="predictionResult.sample"
+                    >
+                        <template #cell-prediction="{ row }">
+                            <span class="font-medium text-ink dark:text-ink-dark">
+                                {{ row.prediction }}
+                            </span>
+                        </template>
+                    </DataTable>
+                </div>
+            </div>
+        </template>
+    </AppCard>
 </template>

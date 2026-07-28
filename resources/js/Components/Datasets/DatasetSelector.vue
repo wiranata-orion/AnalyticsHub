@@ -28,10 +28,13 @@ const { items, selectedId } = storeToRefs(store);
                 name="datasets"
                 class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
             />
+            <!-- Lewat store.select(), bukan v-model: pemilihan juga harus memuat
+                 detail kolom dataset dari API, bukan sekadar mengganti id. -->
             <select
                 id="dataset-selector"
-                v-model="selectedId"
+                :value="selectedId ?? ''"
                 class="focus-ring h-9 min-w-[15rem] rounded-lg border-hairline bg-surface py-0 pl-9 pr-8 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-surface-dark dark:text-ink-dark"
+                @change="store.select($event.target.value)"
             >
                 <option
                     v-for="dataset in items"

@@ -46,6 +46,11 @@ const iconMap = {
 
     settings: Icons.Settings,
 
+    // Kontrol tema — tiga status: terang, gelap, ikut sistem
+    sun: Icons.Sun,
+    moon: Icons.Moon,
+    system: Icons.Monitor,
+
     // General
     upload: Icons.Upload,
     download: Icons.Download,
@@ -70,11 +75,14 @@ const iconMap = {
     trendDown: Icons.TrendingDown,
     logout: Icons.LogOut,
     user: Icons.User,
+    sidebar: Icons.PanelLeft,
 }
 
 const icon = computed(() => iconMap[props.name] || Icons.CircleHelp)
 </script>
 
 <template>
-    <component :is="icon" class="h-5 w-5" :stroke-width="1.8" />
+    <!-- Ukuran tidak ditetapkan di sini: setiap pemanggil sudah mengirim kelas
+         h-*/w-* sendiri, dan kelas bawaan akan bertabrakan dengannya. -->
+    <component :is="icon" :stroke-width="1.8" />
 </template>

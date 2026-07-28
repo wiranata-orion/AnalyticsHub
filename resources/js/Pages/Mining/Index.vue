@@ -1,6 +1,5 @@
 <script setup>
 import { computed, ref } from 'vue';
-import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
 import AppButton from '@/Components/UI/AppButton.vue';
@@ -366,303 +365,301 @@ function exportRules(payload) {
 </script>
 
 <template>
-    <AppLayout>
-        <PageHeader
-            title="Data Mining"
-            description="Sistem menganalisis karakteristik dataset lebih dulu, lalu menyarankan algoritma yang sesuai. Pilih satu, beberapa, atau seluruhnya."
-            :breadcrumbs="[
-                { label: 'Dashboard', to: { name: 'dashboard' } },
-                { label: 'Data Mining' },
-            ]"
-        >
-            <template #actions>
-                <DatasetSelector />
-                <AppButton
-                    variant="primary"
-                    icon="play"
-                    :disabled="isRunning"
-                    @click="runAnalysis"
-                >
-                    {{ isRunning ? 'Menjalankan…' : `Jalankan Analisis (${selected.length})` }}
-                </AppButton>
-            </template>
-        </PageHeader>
-
-        <AppCard
-            title="Karakteristik Dataset"
-            subtitle="Dibaca dari hasil profiling; inilah dasar rekomendasi algoritma di bawah."
-        >
-            <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div
-                    v-for="row in CHARACTERISTIC_ROWS"
-                    :key="row.label"
-                    class="min-w-0"
-                >
-                    <dt class="text-xs text-ink-3">{{ row.label }}</dt>
-                    <dd
-                        class="mt-0.5 truncate text-sm font-medium text-ink dark:text-ink-dark"
-                        :title="row.value"
-                    >
-                        {{ row.value }}
-                    </dd>
-                </div>
-            </dl>
-        </AppCard>
-
-        <div class="mb-3 mt-4 flex flex-wrap items-center gap-3">
-            <h2 class="text-sm font-semibold text-ink dark:text-ink-dark">
-                Pilih Algoritma
-            </h2>
-            <span class="text-xs text-ink-3">
-                {{ selected.length }} dari {{ algorithms.length }} dipilih
-            </span>
-
-            <div class="ml-auto flex items-center gap-2">
-                <AppButton
-                    size="sm"
-                    @click="setSelection(algorithms.map((item) => item.key))"
-                >
-                    Pilih Semua
-                </AppButton>
-                <AppButton size="sm" @click="setSelection([])">Kosongkan</AppButton>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <button
-                v-for="algorithm in algorithms"
-                :key="algorithm.key"
-                type="button"
-                class="focus-ring rounded-xl border bg-surface p-5 text-left transition-colors dark:bg-surface-dark"
-                :class="
-                    selected.includes(algorithm.key)
-                        ? 'border-accent ring-1 ring-accent dark:border-accent-dark dark:ring-accent-dark'
-                        : 'border-hairline hover:bg-plane dark:border-hairline-dark dark:hover:bg-raised-dark/60'
-                "
-                :aria-pressed="selected.includes(algorithm.key)"
-                @click="toggle(algorithm.key)"
+    <PageHeader
+        title="Data Mining"
+        description="Sistem menganalisis karakteristik dataset lebih dulu, lalu menyarankan algoritma yang sesuai. Pilih satu, beberapa, atau seluruhnya."
+        :breadcrumbs="[
+            { label: 'Dashboard', to: { name: 'dashboard' } },
+            { label: 'Data Mining' },
+        ]"
+    >
+        <template #actions>
+            <DatasetSelector />
+            <AppButton
+                variant="primary"
+                icon="play"
+                :disabled="isRunning"
+                @click="runAnalysis"
             >
-                <div class="flex items-start justify-between gap-3">
-                    <span
-                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-plane text-accent dark:bg-raised-dark dark:text-accent-dark"
-                    >
-                        <AppIcon :name="algorithm.icon" class="h-[18px] w-[18px]" />
-                    </span>
+                {{ isRunning ? 'Menjalankan…' : `Jalankan Analisis (${selected.length})` }}
+            </AppButton>
+        </template>
+    </PageHeader>
 
-                    <AppIcon
-                        v-if="selected.includes(algorithm.key)"
-                        name="check"
-                        class="h-4 w-4 shrink-0 text-accent dark:text-accent-dark"
-                    />
-                </div>
+    <AppCard
+        title="Karakteristik Dataset"
+        subtitle="Dibaca dari hasil profiling; inilah dasar rekomendasi algoritma di bawah."
+    >
+        <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div
+                v-for="row in CHARACTERISTIC_ROWS"
+                :key="row.label"
+                class="min-w-0"
+            >
+                <dt class="text-xs text-ink-3">{{ row.label }}</dt>
+                <dd
+                    class="mt-0.5 truncate text-sm font-medium text-ink dark:text-ink-dark"
+                    :title="row.value"
+                >
+                    {{ row.value }}
+                </dd>
+            </div>
+        </dl>
+    </AppCard>
 
-                <p class="mt-3.5 flex flex-wrap items-center gap-2">
-                    <span class="text-sm font-medium text-ink dark:text-ink-dark">
-                        {{ algorithm.name }}
-                    </span>
-                    <AppBadge
-                        v-if="recommendationFor(algorithm.key)?.level === 'high'"
-                        variant="good"
-                    >
-                        Direkomendasikan
-                    </AppBadge>
-                </p>
+    <div class="mb-3 mt-4 flex flex-wrap items-center gap-3">
+        <h2 class="text-sm font-semibold text-ink dark:text-ink-dark">
+            Pilih Algoritma
+        </h2>
+        <span class="text-xs text-ink-3">
+            {{ selected.length }} dari {{ algorithms.length }} dipilih
+        </span>
 
-                <p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">
-                    {{ algorithm.description }}
-                </p>
-
-                <p class="mt-3 text-xs text-ink-3">
-                    {{
-                        recommendationFor(algorithm.key)?.reason ??
-                        'Tidak menonjol untuk karakteristik dataset ini, tetapi tetap bisa dijalankan.'
-                    }}
-                </p>
-            </button>
+        <div class="ml-auto flex items-center gap-2">
+            <AppButton
+                size="sm"
+                @click="setSelection(algorithms.map((item) => item.key))"
+            >
+                Pilih Semua
+            </AppButton>
+            <AppButton size="sm" @click="setSelection([])">Kosongkan</AppButton>
         </div>
+    </div>
 
-        <!-- Hasil per algoritma -->
-        <div class="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 class="text-sm font-semibold text-ink dark:text-ink-dark">
-                Hasil Analisis
-            </h2>
-            <p v-if="results.length" class="text-xs text-ink-3">
-                {{ results.length }} algoritma dijalankan pada dataset terpilih
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <button
+            v-for="algorithm in algorithms"
+            :key="algorithm.key"
+            type="button"
+            class="focus-ring rounded-xl border bg-surface p-5 text-left transition-colors dark:bg-surface-dark"
+            :class="
+                selected.includes(algorithm.key)
+                    ? 'border-accent ring-1 ring-accent dark:border-accent-dark dark:ring-accent-dark'
+                    : 'border-hairline hover:bg-plane dark:border-hairline-dark dark:hover:bg-raised-dark/60'
+            "
+            :aria-pressed="selected.includes(algorithm.key)"
+            @click="toggle(algorithm.key)"
+        >
+            <div class="flex items-start justify-between gap-3">
+                <span
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-plane text-accent dark:bg-raised-dark dark:text-accent-dark"
+                >
+                    <AppIcon :name="algorithm.icon" class="h-[18px] w-[18px]" />
+                </span>
+
+                <AppIcon
+                    v-if="selected.includes(algorithm.key)"
+                    name="check"
+                    class="h-4 w-4 shrink-0 text-accent dark:text-accent-dark"
+                />
+            </div>
+
+            <p class="mt-3.5 flex flex-wrap items-center gap-2">
+                <span class="text-sm font-medium text-ink dark:text-ink-dark">
+                    {{ algorithm.name }}
+                </span>
+                <AppBadge
+                    v-if="recommendationFor(algorithm.key)?.level === 'high'"
+                    variant="good"
+                >
+                    Direkomendasikan
+                </AppBadge>
             </p>
-        </div>
 
-        <AppCard v-if="!results.length" flush>
-            <EmptyState
-                icon="mining"
-                title="Belum ada analisis dijalankan"
-                description="Pilih algoritma di atas lalu tekan Jalankan Analisis. Setiap algoritma menghasilkan blok hasilnya sendiri."
-            />
-        </AppCard>
+            <p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">
+                {{ algorithm.description }}
+            </p>
 
-        <div v-else class="space-y-4">
-            <template v-for="result in results" :key="result.key">
-                <!-- Algoritma yang tidak cocok tetap dilaporkan, bukan dihilangkan
-                     diam-diam, supaya pengguna tahu mengapa hasilnya tidak ada. -->
-                <AppCard v-if="!result.ok" :title="result.name">
-                    <p class="flex items-start gap-2 text-sm text-ink-2 dark:text-ink-2-dark">
-                        <AppIcon
-                            name="warning"
-                            class="mt-0.5 h-4 w-4 shrink-0 text-[#8a5a00] dark:text-status-warning"
-                        />
-                        {{ result.message }}
-                    </p>
-                </AppCard>
+            <p class="mt-3 text-xs text-ink-3">
+                {{
+                    recommendationFor(algorithm.key)?.reason ??
+                    'Tidak menonjol untuk karakteristik dataset ini, tetapi tetap bisa dijalankan.'
+                }}
+            </p>
+        </button>
+    </div>
 
-                <div v-else-if="result.key === 'clustering'" class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <ChartPanel
-                        :title="`${result.name} — sebaran cluster`"
-                        :subtitle="`K-Means, k = ${result.payload.k}, konvergen dalam ${result.payload.iterations} iterasi`"
-                        type="scatter"
-                        :series="result.payload.series"
-                        :height="300"
+    <!-- Hasil per algoritma -->
+    <div class="mb-3 mt-6 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="text-sm font-semibold text-ink dark:text-ink-dark">
+            Hasil Analisis
+        </h2>
+        <p v-if="results.length" class="text-xs text-ink-3">
+            {{ results.length }} algoritma dijalankan pada dataset terpilih
+        </p>
+    </div>
+
+    <AppCard v-if="!results.length" flush>
+        <EmptyState
+            icon="mining"
+            title="Belum ada analisis dijalankan"
+            description="Pilih algoritma di atas lalu tekan Jalankan Analisis. Setiap algoritma menghasilkan blok hasilnya sendiri."
+        />
+    </AppCard>
+
+    <div v-else class="space-y-4">
+        <template v-for="result in results" :key="result.key">
+            <!-- Algoritma yang tidak cocok tetap dilaporkan, bukan dihilangkan
+                 diam-diam, supaya pengguna tahu mengapa hasilnya tidak ada. -->
+            <AppCard v-if="!result.ok" :title="result.name">
+                <p class="flex items-start gap-2 text-sm text-ink-2 dark:text-ink-2-dark">
+                    <AppIcon
+                        name="warning"
+                        class="mt-0.5 h-4 w-4 shrink-0 text-[#8a5a00] dark:text-status-warning"
                     />
-                    <AppCard
-                        title="Ringkasan Cluster"
-                        :subtitle="`Dihitung dari kolom: ${result.payload.columns.join(', ')}`"
-                        flush
-                    >
-                        <DataTable :columns="CLUSTER_COLUMNS" :rows="result.payload.clusters" />
-                    </AppCard>
-                </div>
+                    {{ result.message }}
+                </p>
+            </AppCard>
 
+            <div v-else-if="result.key === 'clustering'" class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ChartPanel
+                    :title="`${result.name} — sebaran cluster`"
+                    :subtitle="`K-Means, k = ${result.payload.k}, konvergen dalam ${result.payload.iterations} iterasi`"
+                    type="scatter"
+                    :series="result.payload.series"
+                    :height="300"
+                />
                 <AppCard
-                    v-else-if="result.key === 'classification'"
-                    :title="`${result.name} — target ${result.payload.target}`"
-                    :subtitle="`${result.payload.algorithm} · ${result.payload.trainSize} baris latih, ${result.payload.testSize} baris uji`"
+                    title="Ringkasan Cluster"
+                    :subtitle="`Dihitung dari kolom: ${result.payload.columns.join(', ')}`"
                     flush
                 >
-                    <template #actions>
-                        <AppBadge variant="good">
-                            Akurasi {{ result.payload.accuracy }}
-                        </AppBadge>
-                    </template>
-
-                    <DataTable :columns="CLASS_COLUMNS" :rows="result.payload.perClass" />
+                    <DataTable :columns="CLUSTER_COLUMNS" :rows="result.payload.clusters" />
                 </AppCard>
+            </div>
 
-                <div v-else-if="result.key === 'regression'" class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <ChartPanel
-                        :title="`${result.name} — prediksi vs aktual`"
-                        :subtitle="`Target ${result.payload.target} · titik ideal berada di garis diagonal`"
-                        type="scatter"
-                        :series="[{ label: 'Baris data uji', data: result.payload.scatter }]"
-                        :height="300"
-                    />
-                    <AppCard
-                        title="Kualitas Model"
-                        :subtitle="result.payload.algorithm"
-                    >
-                        <dl class="space-y-3.5">
-                            <div
-                                v-for="row in [
-                                    { label: 'R² (data uji)', value: result.payload.r2 },
-                                    { label: 'RMSE', value: result.payload.rmse },
-                                    { label: 'Baris uji', value: String(result.payload.testSize) },
-                                ]"
-                                :key="row.label"
-                                class="flex items-center justify-between gap-4 border-b border-hairline pb-3.5 last:border-0 last:pb-0 dark:border-hairline-dark"
-                            >
-                                <dt class="text-sm text-ink-2 dark:text-ink-2-dark">
-                                    {{ row.label }}
-                                </dt>
-                                <dd class="text-sm font-medium tabular-nums text-ink dark:text-ink-dark">
-                                    {{ row.value }}
-                                </dd>
-                            </div>
-                        </dl>
-                    </AppCard>
-                </div>
+            <AppCard
+                v-else-if="result.key === 'classification'"
+                :title="`${result.name} — target ${result.payload.target}`"
+                :subtitle="`${result.payload.algorithm} · ${result.payload.trainSize} baris latih, ${result.payload.testSize} baris uji`"
+                flush
+            >
+                <template #actions>
+                    <AppBadge variant="good">
+                        Akurasi {{ result.payload.accuracy }}
+                    </AppBadge>
+                </template>
 
+                <DataTable :columns="CLASS_COLUMNS" :rows="result.payload.perClass" />
+            </AppCard>
+
+            <div v-else-if="result.key === 'regression'" class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ChartPanel
+                    :title="`${result.name} — prediksi vs aktual`"
+                    :subtitle="`Target ${result.payload.target} · titik ideal berada di garis diagonal`"
+                    type="scatter"
+                    :series="[{ label: 'Baris data uji', data: result.payload.scatter }]"
+                    :height="300"
+                />
                 <AppCard
-                    v-else-if="result.key === 'association'"
-                    :title="`${result.name} — aturan dengan lift tertinggi`"
-                    :subtitle="`${result.payload.transactions} transaksi · kolom item: ${result.payload.columns.join(', ')}`"
-                    flush
+                    title="Kualitas Model"
+                    :subtitle="result.payload.algorithm"
                 >
-                    <template #actions>
-                        <AppButton
-                            size="sm"
-                            icon="download"
-                            @click="exportRules(result.payload)"
+                    <dl class="space-y-3.5">
+                        <div
+                            v-for="row in [
+                                { label: 'R² (data uji)', value: result.payload.r2 },
+                                { label: 'RMSE', value: result.payload.rmse },
+                                { label: 'Baris uji', value: String(result.payload.testSize) },
+                            ]"
+                            :key="row.label"
+                            class="flex items-center justify-between gap-4 border-b border-hairline pb-3.5 last:border-0 last:pb-0 dark:border-hairline-dark"
                         >
-                            Ekspor
-                        </AppButton>
+                            <dt class="text-sm text-ink-2 dark:text-ink-2-dark">
+                                {{ row.label }}
+                            </dt>
+                            <dd class="text-sm font-medium tabular-nums text-ink dark:text-ink-dark">
+                                {{ row.value }}
+                            </dd>
+                        </div>
+                    </dl>
+                </AppCard>
+            </div>
+
+            <AppCard
+                v-else-if="result.key === 'association'"
+                :title="`${result.name} — aturan dengan lift tertinggi`"
+                :subtitle="`${result.payload.transactions} transaksi · kolom item: ${result.payload.columns.join(', ')}`"
+                flush
+            >
+                <template #actions>
+                    <AppButton
+                        size="sm"
+                        icon="download"
+                        @click="exportRules(result.payload)"
+                    >
+                        Ekspor
+                    </AppButton>
+                </template>
+
+                <DataTable
+                    v-if="result.payload.rules.length"
+                    :columns="RULE_COLUMNS"
+                    :rows="result.payload.rules"
+                >
+                    <template #cell-antecedent="{ row }">
+                        <span class="font-medium text-ink dark:text-ink-dark">
+                            {{ row.antecedent }}
+                        </span>
                     </template>
 
-                    <DataTable
-                        v-if="result.payload.rules.length"
-                        :columns="RULE_COLUMNS"
-                        :rows="result.payload.rules"
-                    >
-                        <template #cell-antecedent="{ row }">
+                    <template #cell-consequent="{ row }">
+                        <span class="flex items-center gap-1.5">
+                            <AppIcon
+                                name="chevronRight"
+                                class="h-3 w-3 shrink-0 text-ink-3"
+                            />
                             <span class="font-medium text-ink dark:text-ink-dark">
-                                {{ row.antecedent }}
+                                {{ row.consequent }}
                             </span>
-                        </template>
+                        </span>
+                    </template>
+                </DataTable>
 
-                        <template #cell-consequent="{ row }">
-                            <span class="flex items-center gap-1.5">
-                                <AppIcon
-                                    name="chevronRight"
-                                    class="h-3 w-3 shrink-0 text-ink-3"
-                                />
-                                <span class="font-medium text-ink dark:text-ink-dark">
-                                    {{ row.consequent }}
-                                </span>
-                            </span>
-                        </template>
-                    </DataTable>
+                <EmptyState
+                    v-else
+                    icon="datasets"
+                    title="Tidak ada aturan yang lolos ambang"
+                    description="Tidak ditemukan pasangan item dengan support, confidence, dan lift di atas ambang minimum."
+                />
+            </AppCard>
 
+            <div v-else-if="result.key === 'anomaly'" class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ChartPanel
+                    :title="`${result.name} — ${result.payload.count} baris menyimpang`"
+                    :subtitle="`Sumbu: ${result.payload.axes[0]} dan ${result.payload.axes[1]}`"
+                    type="scatter"
+                    :series="result.payload.series"
+                    :height="300"
+                />
+                <AppCard
+                    title="Anomali Teratas"
+                    :subtitle="`${(result.payload.ratio * 100).toFixed(1).replace('.', ',')}% dari ${result.payload.checked} baris diperiksa`"
+                    flush
+                >
+                    <DataTable
+                        v-if="result.payload.top.length"
+                        :columns="ANOMALY_COLUMNS"
+                        :rows="result.payload.top"
+                    />
                     <EmptyState
                         v-else
-                        icon="datasets"
-                        title="Tidak ada aturan yang lolos ambang"
-                        description="Tidak ditemukan pasangan item dengan support, confidence, dan lift di atas ambang minimum."
+                        icon="check"
+                        title="Tidak ada anomali"
+                        description="Seluruh baris berada dalam batas wajar pada ambang yang dipakai."
                     />
                 </AppCard>
+            </div>
 
-                <div v-else-if="result.key === 'anomaly'" class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <ChartPanel
-                        :title="`${result.name} — ${result.payload.count} baris menyimpang`"
-                        :subtitle="`Sumbu: ${result.payload.axes[0]} dan ${result.payload.axes[1]}`"
-                        type="scatter"
-                        :series="result.payload.series"
-                        :height="300"
-                    />
-                    <AppCard
-                        title="Anomali Teratas"
-                        :subtitle="`${(result.payload.ratio * 100).toFixed(1).replace('.', ',')}% dari ${result.payload.checked} baris diperiksa`"
-                        flush
-                    >
-                        <DataTable
-                            v-if="result.payload.top.length"
-                            :columns="ANOMALY_COLUMNS"
-                            :rows="result.payload.top"
-                        />
-                        <EmptyState
-                            v-else
-                            icon="check"
-                            title="Tidak ada anomali"
-                            description="Seluruh baris berada dalam batas wajar pada ambang yang dipakai."
-                        />
-                    </AppCard>
-                </div>
-
-                <ChartPanel
-                    v-else-if="result.key === 'timeseries'"
-                    :title="`${result.name} — ${result.payload.valueColumn}`"
-                    :subtitle="`Agregasi ${result.payload.grain === 'month' ? 'bulanan' : 'harian'} atas ${result.payload.timeColumn} · tren ${result.payload.direction}, proyeksi ${result.payload.horizon} periode`"
-                    type="line"
-                    :labels="result.payload.labels"
-                    :series="result.payload.series"
-                    :height="320"
-                />
-            </template>
-        </div>
-    </AppLayout>
+            <ChartPanel
+                v-else-if="result.key === 'timeseries'"
+                :title="`${result.name} — ${result.payload.valueColumn}`"
+                :subtitle="`Agregasi ${result.payload.grain === 'month' ? 'bulanan' : 'harian'} atas ${result.payload.timeColumn} · tren ${result.payload.direction}, proyeksi ${result.payload.horizon} periode`"
+                type="line"
+                :labels="result.payload.labels"
+                :series="result.payload.series"
+                :height="320"
+            />
+        </template>
+    </div>
 </template>
