@@ -14,52 +14,79 @@ import { useDatasetStore } from '@/stores/dataset';
 import { useModelStore } from '@/stores/model';
 import { useToastStore } from '@/stores/toast';
 import { useConfirmStore } from '@/stores/confirm';
-import { datasetAnalysis } from '@/Utils/analysis';
 import { ALGORITHM_OPTIONS } from '@/Utils/ml/supervised';
 import { asDecimal, asPercent } from '@/Utils/ml/metrics';
 import { isNumericType } from '@/Utils/profiler';
 import { sequentialAt } from '@/Utils/palette';
 
-/*
- * Halaman ini menutup satu siklus penuh:
- *
- *   Train Model  -> pilih target, fitur, dan algoritma, lalu latih.
- *   Evaluation   -> metrik dihitung dari data uji yang dipisahkan saat training.
- *   Prediction   -> model dipakai pada dataset lain.
- *   Saved Models -> hasil training tersimpan di store, jadi berpindah menu tidak
- *                   menghapusnya dan model bisa dipakai lagi tanpa training ulang.
- *
- * Dataset untuk training diambil dari pemilih di header; dataset untuk prediksi
- * dipilih terpisah, karena justru bedanya yang jadi inti fitur prediksi.
- */
 const datasetStore = useDatasetStore();
 const modelStore = useModelStore();
 const toast = useToastStore();
 const confirm = useConfirmStore();
 
-modelStore.seed();
+// ============================================================================
+// HAPUS: modelStore.seed();
+// Baris di atas telah dihapus agar tabel "Model Tersimpan" benar-benar kosong 
+// saat pertama kali dibuka dan tidak memunculkan data dummy (sintetis).
+// ============================================================================
 
-const analysis = computed(() => datasetAnalysis(datasetStore.selectedId));
-const profile = computed(() => analysis.value.profile);
+// 1. STATE API & LOADING
+const profile = ref(null);
+const isFetchingProfile = ref(false);
+const isTraining = ref(false);
+const isPredicting = ref(false);
+
+const trainerOpen = ref(false);
+const form = ref({ name: '', target: '', features: [], algorithm: '' });
 
 // --- Train Model ------------------------------------------------------------
 
-const trainerOpen = ref(false);
+// 2. MENGAMBIL PROFIL DATASET DARI BACKEND
+async function fetchDatasetProfile(datasetId) {
+    if (!datasetId) return;
 
-const targetOptions = computed(() =>
-    profile.value.columns.filter(
+    isFetchingProfile.value = true;
+    try {
+        // TODO: Ganti dengan request API ke Backend Anda (Python Engine)
+        // const response = await axios.get(`/api/datasets/${datasetId}/profile`);
+        
+        // --- SIMULASI NETWORK DELAY (Mock API sementara agar UI tidak error) ---
+        const fakeApiResponse = await new Promise((resolve) => setTimeout(() => resolve({
+            rowCount: 12500,
+            columns: [
+                { name: 'Age', type: 'numeric', unique: 60, missing: 0, isIdentifier: false },
+                { name: 'Income', type: 'numeric', unique: 400, missing: 10, isIdentifier: false },
+                { name: 'Purchased', type: 'category', unique: 2, missing: 0, isIdentifier: false }
+            ]
+        }), 800));
+        // ------------------------------------------------------------------------
+
+        // Ganti fakeApiResponse dengan response.data dari Axios
+        profile.value = fakeApiResponse;
+        resetForm(); // Reset formulir HANYA setelah data profil tiba
+    } catch (error) {
+        console.error("Gagal mengambil profil dataset:", error);
+        toast.push("Gagal memuat struktur dataset dari server.", "error");
+    } finally {
+        isFetchingProfile.value = false;
+    }
+}
+
+// Gunakan Safe Navigation (profile.value?.columns) agar tidak error saat data API belum tiba
+const targetOptions = computed(() => {
+    if (!profile.value?.columns) return [];
+    return profile.value.columns.filter(
         (column) =>
             !column.isIdentifier &&
             column.type !== 'datetime' &&
             (isNumericType(column.type) || column.unique <= 12),
-    ),
-);
+    );
+});
 
-const form = ref({ name: '', target: '', features: [], algorithm: '' });
-
-const targetMeta = computed(() =>
-    profile.value.columns.find((column) => column.name === form.value.target),
-);
+const targetMeta = computed(() => {
+    if (!profile.value?.columns) return null;
+    return profile.value.columns.find((column) => column.name === form.value.target);
+});
 
 const modelKind = computed(() =>
     targetMeta.value && isNumericType(targetMeta.value.type)
@@ -67,51 +94,51 @@ const modelKind = computed(() =>
         : 'classification',
 );
 
-const algorithmOptions = computed(() => ALGORITHM_OPTIONS[modelKind.value]);
+const algorithmOptions = computed(() => ALGORITHM_OPTIONS[modelKind.value] || []);
 
-const featureOptions = computed(() =>
-    profile.value.columns.filter(
+const featureOptions = computed(() => {
+    if (!profile.value?.columns) return [];
+    return profile.value.columns.filter(
         (column) =>
             !column.isIdentifier &&
             column.name !== form.value.target &&
             column.type !== 'datetime' &&
-            // Regresi belum menangani encoding kategori, jadi kolom kategori
-            // tidak ditawarkan agar pilihan tidak diam-diam diabaikan.
             (modelKind.value === 'regression'
                 ? isNumericType(column.type)
                 : isNumericType(column.type) || column.unique <= 12),
-    ),
-);
+    );
+});
 
-/*
- * Kolom yang banyak kosongnya tetap ditawarkan, tetapi tidak dicentang di awal:
- * baris dengan fitur kosong ikut terbuang saat training, jadi memilihnya berarti
- * mengorbankan sebagian dataset — itu keputusan yang sebaiknya disengaja.
- */
 const defaultFeatures = () =>
     featureOptions.value
         .filter((column) => column.missing < 15)
         .map((column) => column.name);
 
 function resetForm() {
-    const target = targetOptions.value[0]?.name ?? '';
-
+    const target = targetOptions.value.length > 0 ? targetOptions.value[0].name : '';
     form.value = { name: '', target, features: [], algorithm: '' };
-    form.value.features = defaultFeatures();
-    form.value.algorithm = algorithmOptions.value[0].value;
+    
+    if (target) {
+        form.value.features = defaultFeatures();
+        form.value.algorithm = algorithmOptions.value.length > 0 ? algorithmOptions.value[0].value : '';
+    }
 }
 
-resetForm();
+// 3. TRIGGER PENGAMBILAN DATA KETIKA DATASET BERUBAH
+watch(
+    () => datasetStore.selectedId,
+    (id) => {
+        profile.value = null; // Kosongkan state sebelum memuat ulang
+        fetchDatasetProfile(id);
+    },
+    { immediate: true }
+);
 
-watch(() => datasetStore.selectedId, resetForm);
-
-// Berganti target mengubah jenis model, sehingga daftar fitur dan algoritma
-// yang berlaku ikut berubah.
 watch(
     () => form.value.target,
     () => {
         form.value.features = defaultFeatures();
-        form.value.algorithm = algorithmOptions.value[0].value;
+        form.value.algorithm = algorithmOptions.value[0]?.value ?? '';
     },
 );
 
@@ -121,31 +148,49 @@ function toggleFeature(name) {
         : [...form.value.features, name];
 }
 
-function submitTraining() {
-    const result = modelStore.train({
-        datasetId: datasetStore.selectedId,
-        target: form.value.target,
-        features: form.value.features,
-        algorithm: form.value.algorithm,
-        name: form.value.name,
-    });
+// 4. MENGIRIM PERMINTAAN TRAINING KE BACKEND API
+async function submitTraining() {
+    isTraining.value = true;
 
-    if (!result.ok) {
-        toast.push(result.message, 'warning');
+    try {
+        // TODO: Ganti dengan request API sebenarnya ke Python backend
+        /*
+        const response = await axios.post(`/api/models/train`, { 
+            datasetId: datasetStore.selectedId, 
+            target: form.value.target,
+            features: form.value.features,
+            algorithm: form.value.algorithm,
+            name: form.value.name
+        });
+        */
+        
+        // --- SIMULASI API WAKTU TUNGGU ---
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        
+        // PENTING: Pastikan Pinia Store (`modelStore`) Anda memiliki fungsi seperti `addModel` 
+        // yang murni HANYA menyimpan response object dari Axios ke dalam Array state.
+        // BUKAN fungsi yang melakukan komputasi ML secara lokal.
+        /*
+        modelStore.addModel(response.data);
+        
+        trainerOpen.value = false;
+        toast.push(`Model "${response.data.name}" selesai dilatih — ${response.data.metric} ${response.data.score}.`);
+        */
 
-        return;
+        // Simulasi sukses sementara agar Anda bisa melihat pesannya:
+        trainerOpen.value = false;
+        toast.push('Perintah training dikirim ke server. (Ganti dengan logika API untuk menyimpan data)', 'info');
+
+    } catch (error) {
+        console.error("Gagal melatih model:", error);
+        toast.push('Terjadi kesalahan saat melatih model di server.', 'error');
+    } finally {
+        isTraining.value = false;
     }
-
-    trainerOpen.value = false;
-    toast.push(
-        `Model "${result.model.name}" selesai dilatih — ${result.model.metric} ${result.model.score}.`,
-    );
 }
 
 // --- Saved Models -----------------------------------------------------------
 
-// Kolom teks panjang dibungkus dan metrik digabung ke skor, supaya tabel muat
-// tanpa harus digulir ke samping.
 const MODEL_COLUMNS = [
     { key: 'name', label: 'Nama Model', wrap: true },
     { key: 'algorithm', label: 'Algoritma', wrap: true },
@@ -167,6 +212,9 @@ async function removeModel(model) {
         return;
     }
 
+    // TODO: Tambahkan pemanggilan DELETE ke API Backend Anda di sini jika diperlukan
+    // await axios.delete(`/api/models/${model.id}`);
+
     modelStore.remove(model.id);
     toast.push(`Model "${model.name}" dihapus.`);
 }
@@ -177,12 +225,8 @@ const selected = computed(() => modelStore.selected);
 const engine = computed(() => selected.value?.engine ?? null);
 
 const importanceChart = computed(() => {
-    if (!engine.value?.featureImportance?.length) {
-        return null;
-    }
-
+    if (!engine.value?.featureImportance?.length) return null;
     const items = [...engine.value.featureImportance].slice(0, 8);
-
     return {
         labels: items.map((item) => item.feature),
         series: [
@@ -195,17 +239,13 @@ const importanceChart = computed(() => {
 });
 
 const rocChart = computed(() => {
-    if (!engine.value?.roc) {
-        return null;
-    }
-
+    if (!engine.value?.roc) return null;
     return {
         auc: engine.value.roc.auc,
         positiveLabel: engine.value.roc.positiveLabel,
         series: [
             { label: 'Model', data: engine.value.roc.points },
             {
-                // Garis acuan: model yang menebak acak berada di diagonal ini.
                 label: 'Tebakan acak',
                 data: [
                     { x: 0, y: 0 },
@@ -216,23 +256,14 @@ const rocChart = computed(() => {
     };
 });
 
-/*
- * Confusion matrix memakai skala SEKUENSIAL satu rona: nilainya adalah jumlah
- * (besaran tanpa polaritas), bukan selisih dua arah. Angka tetap dicetak di
- * setiap sel, jadi warna hanya membantu memindai.
- */
 const matrixCells = computed(() => {
-    if (!engine.value || engine.value.kind !== 'classification') {
-        return null;
-    }
-
+    if (!engine.value || engine.value.kind !== 'classification') return null;
     const matrix = engine.value.evaluation.matrix;
     const highest = Math.max(...matrix.flat(), 1);
 
     return matrix.map((row) =>
         row.map((value) => {
             const ratio = value / highest;
-
             return {
                 value,
                 background: sequentialAt(ratio),
@@ -243,9 +274,7 @@ const matrixCells = computed(() => {
 });
 
 const evaluationRows = computed(() => {
-    if (!engine.value) {
-        return [];
-    }
+    if (!engine.value) return [];
 
     const shared = [
         { label: 'Data Latih', value: `${engine.value.trainSize} baris` },
@@ -255,7 +284,6 @@ const evaluationRows = computed(() => {
 
     if (engine.value.kind === 'regression') {
         const { r2, rmse, mae } = engine.value.evaluation;
-
         return [
             { label: 'R²', value: asDecimal(r2) },
             { label: 'RMSE', value: rmse.toLocaleString('id-ID', { maximumFractionDigits: 0 }) },
@@ -265,26 +293,18 @@ const evaluationRows = computed(() => {
     }
 
     const { accuracy, precision, recall, f1 } = engine.value.evaluation;
-
     return [
         { label: 'Akurasi', value: asPercent(accuracy) },
         { label: 'Presisi', value: asPercent(precision) },
         { label: 'Recall', value: asPercent(recall) },
         { label: 'F1-Score', value: asPercent(f1) },
-        ...(engine.value.roc
-            ? [{ label: 'ROC-AUC', value: asDecimal(engine.value.roc.auc) }]
-            : []),
+        ...(engine.value.roc ? [{ label: 'ROC-AUC', value: asDecimal(engine.value.roc.auc) }] : []),
         ...shared,
     ];
 });
 
 // --- Prediction -------------------------------------------------------------
 
-/*
- * Pilihan formulir prediksi boleh hilang saat berpindah halaman, tetapi HASIL
- * prediksinya tidak — itu pekerjaan yang sudah dijalankan pengguna, jadi
- * disimpan di store dan ditampilkan lagi saat kembali ke halaman ini.
- */
 const prediction = ref({ modelId: null, datasetId: null });
 const predictionResult = computed(() => modelStore.lastPrediction);
 
@@ -310,25 +330,33 @@ const PREDICTION_COLUMNS = [
     { key: 'prediction', label: 'Prediksi', align: 'right' },
 ];
 
-function runPrediction() {
+// 5. MENGIRIM PERMINTAAN PREDIKSI KE BACKEND API
+async function runPrediction() {
     if (!prediction.value.modelId || !prediction.value.datasetId) {
         toast.push('Pilih model dan dataset tujuan terlebih dahulu.', 'warning');
-
         return;
     }
 
-    const result = modelStore.predict(
-        prediction.value.modelId,
-        prediction.value.datasetId,
-    );
+    isPredicting.value = true;
 
-    if (!result.ok) {
-        toast.push(result.message, 'warning');
+    try {
+        // TODO: Ganti dengan request API sebenarnya
+        // const response = await axios.post('/api/models/predict', { modelId: prediction.value.modelId, datasetId: prediction.value.datasetId });
 
-        return;
+        // --- SIMULASI API WAKTU TUNGGU ---
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        
+        // Simpan hasil ke store: modelStore.setPredictionResult(response.data)
+        // ...
+
+        toast.push(`Prediksi selesai dijalankan. (Ganti ini dengan data response dari API)`, 'info');
+
+    } catch (error) {
+        console.error("Gagal melakukan prediksi:", error);
+        toast.push('Terjadi kesalahan saat memprediksi data di server.', 'error');
+    } finally {
+        isPredicting.value = false;
     }
-
-    toast.push(`${result.total} baris diprediksi dari ${result.datasetName}.`);
 }
 </script>
 
@@ -346,6 +374,7 @@ function runPrediction() {
             <AppButton
                 variant="primary"
                 :icon="trainerOpen ? 'close' : 'plus'"
+                :disabled="isTraining"
                 @click="trainerOpen = !trainerOpen"
             >
                 {{ trainerOpen ? 'Tutup Formulir' : 'Latih Model' }}
@@ -358,91 +387,102 @@ function runPrediction() {
         v-if="trainerOpen"
         class="mb-4"
         title="Latih Model Baru"
-        :subtitle="`Dataset: ${datasetStore.selected?.name ?? '—'} · ${profile.rowCount.toLocaleString('id-ID')} baris`"
+        :subtitle="`Dataset: ${datasetStore.selected?.name ?? '—'} · ${profile?.rowCount?.toLocaleString('id-ID') ?? 0} baris`"
     >
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div>
-                <label
-                    for="model-name"
-                    class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                >
-                    Nama Model (opsional)
-                </label>
-                <input
-                    id="model-name"
-                    v-model="form.name"
-                    type="text"
-                    placeholder="Mengikuti target yang dipilih"
-                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane px-3 text-sm text-ink placeholder:text-ink-3 focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
-                />
-            </div>
-
-            <div>
-                <label
-                    for="model-target"
-                    class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                >
-                    Target
-                </label>
-                <select
-                    id="model-target"
-                    v-model="form.target"
-                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
-                >
-                    <option
-                        v-for="column in targetOptions"
-                        :key="column.name"
-                        :value="column.name"
-                    >
-                        {{ column.name }} ({{ column.type }})
-                    </option>
-                </select>
-            </div>
-
-            <div>
-                <label
-                    for="model-algorithm"
-                    class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
-                >
-                    Algoritma
-                </label>
-                <select
-                    id="model-algorithm"
-                    v-model="form.algorithm"
-                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
-                >
-                    <option
-                        v-for="option in algorithmOptions"
-                        :key="option.value"
-                        :value="option.value"
-                    >
-                        {{ option.label }}
-                    </option>
-                </select>
-            </div>
+        <!-- Overlay transparan saat fetch profil dataset -->
+        <div v-if="isFetchingProfile" class="py-10 text-center text-sm text-ink-3">
+            Memuat profil dataset...
         </div>
 
-        <div class="mt-4">
-            <p class="mb-2 text-xs font-medium text-ink-2 dark:text-ink-2-dark">
-                Fitur ({{ form.features.length }} dari {{ featureOptions.length }} dipilih)
-            </p>
+        <div v-else>
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div>
+                    <label
+                        for="model-name"
+                        class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                    >
+                        Nama Model (opsional)
+                    </label>
+                    <input
+                        id="model-name"
+                        v-model="form.name"
+                        type="text"
+                        :disabled="isTraining"
+                        placeholder="Mengikuti target yang dipilih"
+                        class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane px-3 text-sm text-ink placeholder:text-ink-3 focus:border-hairline focus:ring-0 disabled:opacity-50 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                    />
+                </div>
 
-            <div class="flex flex-wrap gap-2">
-                <button
-                    v-for="column in featureOptions"
-                    :key="column.name"
-                    type="button"
-                    class="focus-ring rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset transition-colors"
-                    :class="
-                        form.features.includes(column.name)
-                            ? 'bg-accent text-white ring-accent dark:bg-accent-dark dark:ring-accent-dark'
-                            : 'text-ink-2 ring-hairline hover:bg-plane dark:text-ink-2-dark dark:ring-hairline-dark dark:hover:bg-raised-dark'
-                    "
-                    :aria-pressed="form.features.includes(column.name)"
-                    @click="toggleFeature(column.name)"
-                >
-                    {{ column.name }}
-                </button>
+                <div>
+                    <label
+                        for="model-target"
+                        class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                    >
+                        Target
+                    </label>
+                    <select
+                        id="model-target"
+                        v-model="form.target"
+                        :disabled="isTraining"
+                        class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 disabled:opacity-50 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                    >
+                        <option
+                            v-for="column in targetOptions"
+                            :key="column.name"
+                            :value="column.name"
+                        >
+                            {{ column.name }} ({{ column.type }})
+                        </option>
+                    </select>
+                </div>
+
+                <div>
+                    <label
+                        for="model-algorithm"
+                        class="mb-1.5 block text-xs font-medium text-ink-2 dark:text-ink-2-dark"
+                    >
+                        Algoritma
+                    </label>
+                    <select
+                        id="model-algorithm"
+                        v-model="form.algorithm"
+                        :disabled="isTraining"
+                        class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 disabled:opacity-50 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                    >
+                        <option
+                            v-for="option in algorithmOptions"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <p class="mb-2 text-xs font-medium text-ink-2 dark:text-ink-2-dark">
+                    Fitur ({{ form.features.length }} dari {{ featureOptions.length }} dipilih)
+                </p>
+
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        v-for="column in featureOptions"
+                        :key="column.name"
+                        type="button"
+                        :disabled="isTraining"
+                        class="focus-ring rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset transition-colors disabled:opacity-50"
+                        :class="
+                            form.features.includes(column.name)
+                                ? 'bg-accent text-white ring-accent dark:bg-accent-dark dark:ring-accent-dark'
+                                : 'text-ink-2 ring-hairline hover:bg-plane dark:text-ink-2-dark dark:ring-hairline-dark dark:hover:bg-raised-dark'
+                        "
+                        :aria-pressed="form.features.includes(column.name)"
+                        @click="toggleFeature(column.name)"
+                    >
+                        {{ column.name }}
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -456,8 +496,13 @@ function runPrediction() {
                     }}
                     20% data disisihkan sebagai data uji.
                 </p>
-                <AppButton variant="primary" icon="play" @click="submitTraining">
-                    Latih Model
+                <AppButton 
+                    variant="primary" 
+                    icon="play" 
+                    :disabled="isTraining || isFetchingProfile" 
+                    @click="submitTraining"
+                >
+                    {{ isTraining ? 'Melatih...' : 'Latih Model' }}
                 </AppButton>
             </div>
         </template>
@@ -590,9 +635,6 @@ function runPrediction() {
                 title="Confusion Matrix"
                 subtitle="Prediksi model pada data uji"
             >
-                <!-- Lebar kolom dibagi rata lewat `table-fixed` supaya
-                     matriks selalu muat di dalam kartunya, berapa pun jumlah
-                     kelasnya, dan tidak perlu digulir ke samping. -->
                 <table
                     class="w-full table-fixed border-separate border-spacing-1 text-sm"
                 >
@@ -654,14 +696,10 @@ function runPrediction() {
                 <AppCard title="Ringkasan Evaluasi">
                     <div class="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
                         <div v-for="metric in evaluationRows" :key="metric.label">
-                            <p
-                                class="text-xs font-medium uppercase tracking-wide text-ink-3"
-                            >
+                            <p class="text-xs font-medium uppercase tracking-wide text-ink-3">
                                 {{ metric.label }}
                             </p>
-                            <p
-                                class="mt-1.5 text-xl font-semibold text-ink dark:text-ink-dark"
-                            >
+                            <p class="mt-1.5 text-xl font-semibold text-ink dark:text-ink-dark">
                                 {{ metric.value }}
                             </p>
                         </div>
@@ -737,7 +775,8 @@ function runPrediction() {
                 <select
                     id="predict-model"
                     v-model="prediction.modelId"
-                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                    :disabled="isPredicting"
+                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 disabled:opacity-50 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
                 >
                     <option
                         v-for="model in modelStore.items"
@@ -759,7 +798,8 @@ function runPrediction() {
                 <select
                     id="predict-dataset"
                     v-model="prediction.datasetId"
-                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
+                    :disabled="isPredicting"
+                    class="focus-ring h-9 w-full rounded-lg border-hairline bg-plane py-0 text-sm text-ink focus:border-hairline focus:ring-0 disabled:opacity-50 dark:border-hairline-dark dark:bg-plane-dark dark:text-ink-dark"
                 >
                     <option
                         v-for="dataset in datasetStore.items"
@@ -774,10 +814,10 @@ function runPrediction() {
             <AppButton
                 variant="primary"
                 icon="play"
-                :disabled="!modelStore.items.length"
+                :disabled="!modelStore.items.length || isPredicting"
                 @click="runPrediction"
             >
-                Jalankan Prediksi
+                {{ isPredicting ? 'Memprediksi...' : 'Jalankan Prediksi' }}
             </AppButton>
         </div>
 

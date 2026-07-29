@@ -13,53 +13,82 @@ import DatasetSelector from '@/Components/Datasets/DatasetSelector.vue';
 import { useDatasetStore } from '@/stores/dataset';
 import { useToastStore } from '@/stores/toast';
 import { useVisualizationStore } from '@/stores/visualization';
-import { datasetAnalysis } from '@/Utils/analysis';
+
+// HAPUS import data sintetis lokal
+// import { datasetAnalysis } from '@/Utils/analysis';
+
 import { autoChartConfigs, emptyConfig } from '@/Utils/autoVisualization';
 import { buildChart } from '@/Utils/chartBuilder';
 import { isNumericType } from '@/Utils/profiler';
 
-/*
- * Satu daftar grafik untuk satu dataset.
- *
- * Panel awalnya dipilihkan sistem dari hasil profiling (lihat
- * `@/Utils/autoVisualization`), tetapi bentuk konfigurasinya sama dengan yang
- * dihasilkan formulir. Karena itu setiap panel — termasuk yang muncul otomatis —
- * bisa langsung dibuka dan diubah, dan tidak perlu ada daftar grafik kedua yang
- * terpisah.
- *
- * Susunannya disimpan di store per dataset, sehingga hasil penyuntingan tetap
- * ada saat pengguna berpindah menu lalu kembali.
- */
 const datasetStore = useDatasetStore();
 const visualizationStore = useVisualizationStore();
 const toast = useToastStore();
 
-const analysis = computed(() => datasetAnalysis(datasetStore.selectedId));
-const profile = computed(() => analysis.value.profile);
+// 1. UBAH DARI COMPUTED MENJADI REF KOSONG (Siap menerima API)
+const analysis = ref({
+    table: [],
+    profile: { columns: [] }
+});
 
-const charts = computed(() =>
-    visualizationStore.charts(datasetStore.selectedId).map((chart) => ({
+const profile = computed(() => analysis.value.profile);
+const isFetchingData = ref(false); // Dipakai hanya untuk mendisable tombol, BUKAN untuk nyembunyiin UI
+
+const charts = computed(() => {
+    // Jangan proses chart jika data dari API belum tiba
+    if (!analysis.value.table.length || !profile.value.columns.length) return [];
+    
+    return visualizationStore.charts(datasetStore.selectedId).map((chart) => ({
         id: chart.id,
         config: chart.config,
         built: buildChart(analysis.value.table, profile.value, chart.config),
-    })),
-);
+    }));
+});
 
-/*
- * Formulir muncul di dua tempat: di bawah header saat membuat grafik baru, dan
- * tepat di bawah panel yang sedang diubah. Yang kedua itu yang penting — daftar
- * grafik bisa panjang, dan menaruh formulir hanya di atas memaksa pengguna
- * menggulir bolak-balik untuk melihat hasil suntingannya.
- */
 const editorOpen = ref(false);
 const editingId = ref(null);
 const editorSeed = ref(emptyConfig());
 
+// 2. FUNGSI UNTUK MENGAMBIL DATA DARI BACKEND
+async function fetchAnalysisFromAPI(datasetId) {
+    if (!datasetId) return;
+    
+    isFetchingData.value = true;
+    try {
+        // TODO: Ganti dengan request API asli ke Python Engine Anda
+        // Contoh: const response = await axios.get(`/api/datasets/${datasetId}/analysis`);
+        
+        // --- SIMULASI API ---
+        const fakeApiResponse = await new Promise(resolve => setTimeout(() => resolve({
+            table: [ /* Baris data asli */ ],
+            profile: { columns: [ /* Profil kolom asli */ ] }
+        }), 1000));
+        // --------------------
+
+        // Set data ke dalam ref (Misal dari response.data)
+        // analysis.value = response.data; 
+        
+        // Pastikan susunan grafik otomatis terbentuk (jika sebelumnya belum ada)
+        visualizationStore.ensure(
+            datasetId,
+            autoChartConfigs(analysis.value.profile, analysis.value.table),
+        );
+    } catch (error) {
+        console.error("Gagal mengambil data analisis:", error);
+        toast.push("Gagal mengambil data dari server.", "error");
+    } finally {
+        isFetchingData.value = false;
+    }
+}
+
 function startCreate() {
-    const numeric = profile.value.columns.filter(
+    // Gunakan fallback array kosong jika data belum siap
+    const columns = profile.value?.columns || [];
+    
+    const numeric = columns.filter(
         (column) => !column.isIdentifier && isNumericType(column.type),
     );
-    const groupable = profile.value.columns.filter(
+    const groupable = columns.filter(
         (column) => !column.isIdentifier && column.type === 'category',
     );
 
@@ -84,11 +113,11 @@ function closeEditor() {
 }
 
 function save(config) {
+    // Validasi berjalan menggunakan data asinkronus yang sudah masuk
     const result = buildChart(analysis.value.table, profile.value, config);
 
     if (!result.ok) {
         toast.push(result.message, 'warning');
-
         return;
     }
 
@@ -126,29 +155,21 @@ function restoreAuto() {
     toast.push('Susunan grafik dikembalikan ke pilihan sistem.');
 }
 
-// Panel yang sedang diubah diberi cincin aksen agar jelas formulir di bawahnya
-// milik grafik yang mana.
 const editingRing = (id) =>
     editingId.value === id
         ? 'ring-1 ring-accent dark:ring-accent-dark'
         : '';
 
 /*
- * Susunan awal diisi sekali per dataset; mengisinya di `watch` dan bukan di
- * computed supaya render tidak mengubah state.
- *
- * Ditaruh setelah seluruh state di atas dideklarasikan: `immediate` menjalankan
- * callback-nya saat setup, dan memanggil `closeEditor()` sebelum `editorOpen`
- * sempat terbentuk akan melempar ReferenceError yang mengosongkan halaman.
+ * 3. TRIGGGER PENGAMBILAN DATA (API) KETIKA DATASET BERUBAH
  */
 watch(
     () => datasetStore.selectedId,
     (id) => {
-        visualizationStore.ensure(
-            id,
-            autoChartConfigs(profile.value, analysis.value.table),
-        );
         closeEditor();
+        // Reset data sementara API berjalan
+        analysis.value = { table: [], profile: { columns: [] } };
+        fetchAnalysisFromAPI(id);
     },
     { immediate: true },
 );
@@ -165,16 +186,16 @@ watch(
     >
         <template #actions>
             <DatasetSelector />
-            <AppButton icon="refresh" @click="restoreAuto">
+            <!-- Tombol dinonaktifkan (disabled) secara transparan saat API berjalan -->
+            <AppButton icon="refresh" :disabled="isFetchingData" @click="restoreAuto">
                 Pulihkan Otomatis
             </AppButton>
-            <AppButton variant="primary" icon="plus" @click="startCreate">
+            <AppButton variant="primary" icon="plus" :disabled="isFetchingData" @click="startCreate">
                 Buat Grafik
             </AppButton>
         </template>
     </PageHeader>
 
-    <!-- Grafik baru: tepat di bawah tombol yang memunculkannya -->
     <ChartEditor
         v-if="editorOpen && editingId === null"
         class="mb-4"
@@ -185,13 +206,14 @@ watch(
         @cancel="closeEditor"
     />
 
+    <!-- Langsung render UI. Jika API belum selesai, "charts" bernilai kosong dan menampilkan State ini sejenak -->
     <AppCard v-if="!charts.length" flush>
         <EmptyState
             icon="visualization"
-            title="Belum ada grafik"
-            description="Buat grafik sendiri, atau pulihkan susunan yang dipilihkan sistem dari hasil profiling."
+            :title="isFetchingData ? 'Menganalisis Data...' : 'Belum ada grafik'"
+            :description="isFetchingData ? 'Menyiapkan grafik otomatis dari server.' : 'Buat grafik sendiri, atau pulihkan susunan yang dipilihkan sistem dari hasil profiling.'"
         >
-            <template #action>
+            <template #action v-if="!isFetchingData">
                 <div class="flex flex-wrap items-center justify-center gap-2">
                     <AppButton icon="refresh" @click="restoreAuto">
                         Pulihkan Otomatis
@@ -206,9 +228,6 @@ watch(
 
     <div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <template v-for="chart in charts" :key="chart.id">
-            <!-- Panel yang konfigurasinya tidak lagi cocok dengan dataset
-                 tetap ditampilkan beserta alasannya, supaya bisa diperbaiki
-                 lewat tombol ubah dan tidak hilang tanpa penjelasan. -->
             <AppCard
                 v-if="!chart.built.ok"
                 title="Grafik tidak dapat digambar"
@@ -323,7 +342,6 @@ watch(
                 </AppCard>
             </div>
 
-            <!-- Formulir menyusul tepat setelah panelnya, melebar penuh -->
             <ChartEditor
                 v-if="editorOpen && editingId === chart.id"
                 :key="`editor-${chart.id}`"

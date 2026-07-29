@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
 import AppButton from '@/Components/UI/AppButton.vue';
@@ -12,78 +12,89 @@ import DatasetSelector from '@/Components/Datasets/DatasetSelector.vue';
 import { useDatasetStore } from '@/stores/dataset';
 import { useMiningStore } from '@/stores/mining';
 import { useToastStore } from '@/stores/toast';
-import { datasetAnalysis } from '@/Utils/analysis';
-import { analyzeCharacteristics, recommendAlgorithms } from '@/Utils/recommender';
-import {
-    runAnomaly,
-    runAssociation,
-    runClustering,
-    runTimeSeries,
-} from '@/Utils/ml/mining';
-import { trainModel } from '@/Utils/ml/supervised';
-import { asDecimal, asPercent } from '@/Utils/ml/metrics';
-import { isNumericType } from '@/Utils/profiler';
 import { downloadCsv } from '@/Utils/exportCsv';
-import { mining } from '@/data/placeholder';
 
-/*
- * Alurnya: baca karakteristik dataset -> tawarkan algoritma yang sesuai ->
- * pengguna memilih satu, beberapa, atau semuanya -> seluruh pilihan dijalankan
- * dan masing-masing menghasilkan blok hasil sendiri.
- *
- * Rekomendasi hanya menandai dan mengurutkan; tidak ada algoritma yang dikunci,
- * karena dugaan sistem soal "kolom target" bisa saja tidak sesuai maksud
- * pengguna. Alasan rekomendasi selalu menyebut kolom yang mendasarinya
- * (lihat `@/Utils/recommender`).
- */
+// HAPUS IMPORT DATA DAN MESIN ML LOKAL
+// import { datasetAnalysis } from '@/Utils/analysis';
+// import { analyzeCharacteristics, recommendAlgorithms } from '@/Utils/recommender';
+// import { runAnomaly, runAssociation, runClustering, runTimeSeries } from '@/Utils/ml/mining';
+// import { trainModel } from '@/Utils/ml/supervised';
+// import { mining } from '@/data/placeholder';
+
 const datasetStore = useDatasetStore();
 const miningStore = useMiningStore();
 const toast = useToastStore();
 
-const analysis = computed(() => datasetAnalysis(datasetStore.selectedId));
-const profile = computed(() => analysis.value.profile);
-const facts = computed(() =>
-    analyzeCharacteristics(profile.value, analysis.value.table),
-);
-const recommendations = computed(() =>
-    recommendAlgorithms(profile.value, analysis.value.table),
-);
+// 1. STATE UNTUK DATA API
+const profile = ref(null);
+const facts = ref(null);
+const recommendations = ref([]);
+const algorithms = ref([]);
+
+const isLoadingMetadata = ref(false);
+const isRunning = ref(false);
+
+// 2. MENGAMBIL METADATA DAN DAFTAR ALGORITMA DARI BACKEND
+async function fetchMiningMetadata(datasetId) {
+    if (!datasetId) return;
+
+    isLoadingMetadata.value = true;
+    try {
+        // TODO: Ganti dengan pemanggilan API ke Python Backend Anda
+        // Contoh: const response = await axios.get(`/api/datasets/${datasetId}/mining-metadata`);
+        
+        // --- SIMULASI API ---
+        const fakeApiResponse = await new Promise(resolve => setTimeout(() => resolve({
+            profile: { rowCount: 15200 }, // Data simulasi
+            facts: {
+                numericCount: 8, categoricalCount: 4, datetimeCount: 1, 
+                outlierRatio: 0.045, duplicateRows: 12, 
+                categoricalTargets: [{ name: 'Kategori Produk' }], isTransactional: true
+            },
+            recommendations: [
+                { key: 'association', level: 'high', reason: 'Cocok untuk data transaksional.' }
+            ],
+            algorithms: [
+                { key: 'association', name: 'Association Rules', icon: 'link', description: 'Mencari pola pembelian bersama.' },
+                { key: 'clustering', name: 'Clustering', icon: 'group', description: 'Mengelompokkan baris berdasarkan kemiripan.' },
+                // Tambahkan algoritma lain dari database Anda
+            ]
+        }), 800));
+        // -------------------
+
+        profile.value = fakeApiResponse.profile;
+        facts.value = fakeApiResponse.facts;
+        recommendations.value = fakeApiResponse.recommendations;
+        algorithms.value = fakeApiResponse.algorithms;
+
+    } catch (error) {
+        console.error("Gagal mengambil metadata mining:", error);
+        toast.push("Gagal memuat rekomendasi algoritma dari server.", "error");
+    } finally {
+        isLoadingMetadata.value = false;
+    }
+}
 
 const recommendationFor = (key) =>
     recommendations.value.find((item) => item.key === key) ?? null;
 
-// Algoritma yang direkomendasikan naik ke atas; sisanya menyusul dengan urutan
-// aslinya sehingga posisi kartu tetap dapat diprediksi.
-const algorithms = computed(() =>
-    [...mining.algorithms].sort((a, b) => {
+// Mengurutkan algoritma berdasarkan rekomendasi
+const sortedAlgorithms = computed(() => {
+    if (!algorithms.value) return [];
+    
+    return [...algorithms.value].sort((a, b) => {
         const rank = (key) => {
             const recommendation = recommendationFor(key);
-
-            if (!recommendation) {
-                return 2;
-            }
-
+            if (!recommendation) return 2;
             return recommendation.level === 'high' ? 0 : 1;
         };
-
         return rank(a.key) - rank(b.key);
-    }),
-);
+    });
+});
 
-const isRunning = ref(false);
-
-/*
- * Pilihan algoritma dan hasilnya disimpan di store per dataset, bukan di dalam
- * komponen: analisis yang sudah dijalankan harus tetap bisa dilihat lagi setelah
- * pengguna berpindah menu dan kembali.
- */
 const session = computed(
     () => miningStore.sessions[Number(datasetStore.selectedId)] ?? null,
 );
-
-// Pilihan dibiarkan kosong sampai pengguna memilih sendiri. Rekomendasi hanya
-// menandai dan mengurutkan kartu — mencentangkannya otomatis akan membuat
-// analisis berjalan atas dugaan sistem, bukan atas keputusan pengguna.
 const selected = computed(() => session.value?.selected ?? []);
 const results = computed(() => session.value?.results ?? []);
 
@@ -99,31 +110,34 @@ function toggle(key) {
     );
 }
 
-const CHARACTERISTIC_ROWS = computed(() => [
-    { label: 'Jumlah baris dianalisis', value: profile.value.rowCount.toLocaleString('id-ID') },
-    { label: 'Kolom numerik', value: String(facts.value.numericCount) },
-    { label: 'Kolom kategorikal', value: String(facts.value.categoricalCount) },
-    { label: 'Kolom waktu', value: String(facts.value.datetimeCount) },
-    {
-        label: 'Nilai ekstrem',
-        value: `${(facts.value.outlierRatio * 100).toFixed(1).replace('.', ',')}% dari sel numerik`,
-    },
-    { label: 'Baris duplikat', value: facts.value.duplicateRows.toLocaleString('id-ID') },
-    {
-        label: 'Kandidat target kategorikal',
-        value:
-            facts.value.categoricalTargets
-                .slice(0, 3)
-                .map((column) => column.name)
-                .join(', ') || 'tidak ada',
-    },
-    {
-        label: 'Bentuk data',
-        value: facts.value.isTransactional ? 'transaksional' : 'tabular biasa',
-    },
-]);
+// Gunakan Safe Access (?.) agar UI tidak error jika profile/facts belum tiba dari API
+const CHARACTERISTIC_ROWS = computed(() => {
+    if (!profile.value || !facts.value) return [];
 
-// --- Menjalankan algoritma --------------------------------------------------
+    return [
+        { label: 'Jumlah baris dianalisis', value: profile.value.rowCount?.toLocaleString('id-ID') ?? '-' },
+        { label: 'Kolom numerik', value: String(facts.value.numericCount ?? '-') },
+        { label: 'Kolom kategorikal', value: String(facts.value.categoricalCount ?? '-') },
+        { label: 'Kolom waktu', value: String(facts.value.datetimeCount ?? '-') },
+        {
+            label: 'Nilai ekstrem',
+            value: facts.value.outlierRatio !== undefined 
+                ? `${(facts.value.outlierRatio * 100).toFixed(1).replace('.', ',')}% dari sel numerik` 
+                : '-'
+        },
+        { label: 'Baris duplikat', value: facts.value.duplicateRows?.toLocaleString('id-ID') ?? '-' },
+        {
+            label: 'Kandidat target kategorikal',
+            value: facts.value.categoricalTargets?.slice(0, 3).map((c) => c.name).join(', ') || 'tidak ada',
+        },
+        {
+            label: 'Bentuk data',
+            value: facts.value.isTransactional ? 'transaksional' : 'tabular biasa',
+        },
+    ];
+});
+
+// --- Menjalankan algoritma via API --------------------------------------------------
 
 const CLUSTER_COLUMNS = [
     { key: 'cluster', label: 'Cluster' },
@@ -155,197 +169,47 @@ const ANOMALY_COLUMNS = [
     { key: 'context', label: 'Konteks Baris', wrap: true },
 ];
 
-/** Fitur untuk model: seluruh kolom yang bisa dianalisis selain targetnya. */
-function featuresFor(target) {
-    return profile.value.columns
-        .filter(
-            (column) =>
-                !column.isIdentifier &&
-                column.name !== target &&
-                column.type !== 'datetime' &&
-                (isNumericType(column.type) || column.unique <= 12),
-        )
-        .map((column) => column.name);
-}
-
-function runClassification() {
-    const target = facts.value.categoricalTargets[0];
-
-    if (!target) {
-        return { ok: false, message: 'Tidak ada kolom kategorikal yang layak jadi target.' };
-    }
-
-    const result = trainModel({
-        table: analysis.value.table,
-        profile: profile.value,
-        target: target.name,
-        features: featuresFor(target.name),
-    });
-
-    if (!result.ok) {
-        return result;
-    }
-
-    const { evaluation, ...model } = result.model;
-
-    return {
-        ok: true,
-        payload: {
-            target: target.name,
-            algorithm: model.algorithm,
-            trainSize: model.trainSize,
-            testSize: model.testSize,
-            accuracy: asPercent(evaluation.accuracy),
-            f1: asPercent(evaluation.f1),
-            perClass: evaluation.perClass.map((item, index) => ({
-                id: index,
-                label: item.label,
-                precisionLabel: asPercent(item.precision),
-                recallLabel: asPercent(item.recall),
-                f1Label: asPercent(item.f1),
-                support: item.support,
-            })),
-        },
-    };
-}
-
-function runRegression() {
-    const candidate = facts.value.numericTargets[0];
-
-    if (!candidate) {
-        return { ok: false, message: 'Tidak ada kolom numerik yang layak jadi target.' };
-    }
-
-    const target = candidate.column.name;
-    const result = trainModel({
-        table: analysis.value.table,
-        profile: profile.value,
-        target,
-        features: featuresFor(target).filter((feature) => {
-            const column = profile.value.columns.find((item) => item.name === feature);
-
-            return isNumericType(column.type);
-        }),
-    });
-
-    if (!result.ok) {
-        return result;
-    }
-
-    const model = result.model;
-
-    return {
-        ok: true,
-        payload: {
-            target,
-            algorithm: model.algorithm,
-            r2: asDecimal(model.evaluation.r2),
-            rmse: model.evaluation.rmse.toLocaleString('id-ID', {
-                maximumFractionDigits: 0,
-            }),
-            testSize: model.testSize,
-            scatter: model.scatter,
-            coefficients: model.coefficients,
-        },
-    };
-}
-
-const RUNNERS = {
-    clustering: () => {
-        const result = runClustering({
-            table: analysis.value.table,
-            profile: profile.value,
-            k: 3,
-        });
-
-        return result.ok
-            ? {
-                  ok: true,
-                  payload: {
-                      ...result,
-                      clusters: result.clusters.map((cluster) => ({
-                          ...cluster,
-                          id: cluster.cluster,
-                          shareLabel: `${cluster.share.toFixed(1).replace('.', ',')}%`,
-                          centerLabel: result.columns
-                              .map(
-                                  (column, index) =>
-                                      `${column}: ${cluster.center[index].toLocaleString('id-ID')}`,
-                              )
-                              .join(' · '),
-                      })),
-                  },
-              }
-            : result;
-    },
-    classification: runClassification,
-    regression: runRegression,
-    association: () => {
-        const result = runAssociation({
-            table: analysis.value.table,
-            profile: profile.value,
-        });
-
-        return result.ok ? { ok: true, payload: result } : result;
-    },
-    anomaly: () => {
-        const result = runAnomaly({
-            table: analysis.value.table,
-            profile: profile.value,
-        });
-
-        return result.ok ? { ok: true, payload: result } : result;
-    },
-    timeseries: () => {
-        const result = runTimeSeries({
-            table: analysis.value.table,
-            profile: profile.value,
-        });
-
-        return result.ok ? { ok: true, payload: result } : result;
-    },
-};
-
-function runAnalysis() {
+async function runAnalysis() {
     if (!selected.value.length) {
         toast.push('Pilih minimal satu algoritma untuk dijalankan.', 'warning');
-
         return;
     }
 
     isRunning.value = true;
+    
+    try {
+        // TODO: Ganti dengan request API (POST) ke Backend Python
+        // Contoh: const response = await axios.post(`/api/datasets/${datasetStore.selectedId}/run-mining`, { algorithms: selected.value });
 
-    // Perhitungan berjalan di thread yang sama; jeda satu frame memberi
-    // kesempatan tombol berganti label sebelum browser sibuk menghitung.
-    setTimeout(() => {
-        const completed = [];
+        // --- SIMULASI KOMPUTASI API ---
+        const fakeApiResponse = await new Promise((resolve) => setTimeout(() => resolve([
+            // Contoh kembalian dari backend untuk association (disesuaikan dengan template)
+            {
+                key: 'association', name: 'Association Rules', icon: 'link', ok: true,
+                payload: {
+                    transactions: 1000, columns: ['Item 1', 'Item 2'],
+                    rules: [{ antecedent: 'Roti', consequent: 'Susu', support: 0.2, confidence: 0.8, lift: 1.5 }]
+                }
+            }
+        ]), 2000));
+        // ------------------------------
+        
+        miningStore.setResults(datasetStore.selectedId, fakeApiResponse);
 
-        for (const key of selected.value) {
-            const meta = mining.algorithms.find((item) => item.key === key);
-            const outcome = RUNNERS[key]();
-
-            completed.push({
-                key,
-                name: meta?.name ?? key,
-                icon: meta?.icon ?? 'mining',
-                ok: outcome.ok,
-                message: outcome.message ?? null,
-                payload: outcome.payload ?? null,
-            });
-        }
-
-        miningStore.setResults(datasetStore.selectedId, completed);
-        isRunning.value = false;
-
-        const failed = completed.filter((item) => !item.ok).length;
-
+        const failed = fakeApiResponse.filter((item) => !item.ok).length;
         toast.push(
             failed
-                ? `${completed.length - failed} dari ${completed.length} algoritma selesai, ${failed} dilewati.`
-                : `${completed.length} algoritma selesai dijalankan.`,
+                ? `${fakeApiResponse.length - failed} dari ${fakeApiResponse.length} algoritma selesai, ${failed} dilewati.`
+                : `${fakeApiResponse.length} algoritma selesai dijalankan.`,
             failed ? 'warning' : 'success',
         );
-    }, 16);
+
+    } catch (error) {
+        console.error("Gagal menjalankan algoritma:", error);
+        toast.push('Terjadi kesalahan saat mengeksekusi algoritma di server.', 'error');
+    } finally {
+        isRunning.value = false;
+    }
 }
 
 function exportRules(payload) {
@@ -353,15 +217,25 @@ function exportRules(payload) {
         'association_rules.csv',
         RULE_COLUMNS.map((column) => column.label),
         payload.rules.map((rule) => [
-            rule.antecedent,
-            rule.consequent,
-            rule.support,
-            rule.confidence,
-            rule.lift,
+            rule.antecedent, rule.consequent, rule.support, rule.confidence, rule.lift,
         ]),
     );
     toast.push('Association rule diekspor sebagai CSV.');
 }
+
+// 3. TRIGGER PENGAMBILAN DATA KETIKA DATASET BERUBAH
+watch(
+    () => datasetStore.selectedId,
+    (id) => {
+        // Kosongkan metadata lama
+        profile.value = null;
+        facts.value = null;
+        algorithms.value = [];
+        
+        fetchMiningMetadata(id);
+    },
+    { immediate: true },
+);
 </script>
 
 <template>
@@ -378,7 +252,7 @@ function exportRules(payload) {
             <AppButton
                 variant="primary"
                 icon="play"
-                :disabled="isRunning"
+                :disabled="isRunning || isLoadingMetadata"
                 @click="runAnalysis"
             >
                 {{ isRunning ? 'Menjalankan…' : `Jalankan Analisis (${selected.length})` }}
@@ -390,7 +264,8 @@ function exportRules(payload) {
         title="Karakteristik Dataset"
         subtitle="Dibaca dari hasil profiling; inilah dasar rekomendasi algoritma di bawah."
     >
-        <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- Jika data API belum tiba, render list kosong yang aman tanpa error -->
+        <dl v-if="CHARACTERISTIC_ROWS.length" class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
             <div
                 v-for="row in CHARACTERISTIC_ROWS"
                 :key="row.label"
@@ -405,6 +280,8 @@ function exportRules(payload) {
                 </dd>
             </div>
         </dl>
+        <!-- Pesan placeholder opsional (jika tidak mau, div ini bisa dihapus) -->
+        <p v-else class="text-sm text-ink-3">Menyiapkan karakteristik dataset...</p>
     </AppCard>
 
     <div class="mb-3 mt-4 flex flex-wrap items-center gap-3">
@@ -412,23 +289,29 @@ function exportRules(payload) {
             Pilih Algoritma
         </h2>
         <span class="text-xs text-ink-3">
-            {{ selected.length }} dari {{ algorithms.length }} dipilih
+            {{ selected.length }} dari {{ sortedAlgorithms.length }} dipilih
         </span>
 
         <div class="ml-auto flex items-center gap-2">
             <AppButton
                 size="sm"
-                @click="setSelection(algorithms.map((item) => item.key))"
+                :disabled="isLoadingMetadata"
+                @click="setSelection(sortedAlgorithms.map((item) => item.key))"
             >
                 Pilih Semua
             </AppButton>
-            <AppButton size="sm" @click="setSelection([])">Kosongkan</AppButton>
+            <AppButton size="sm" :disabled="isLoadingMetadata" @click="setSelection([])">
+                Kosongkan
+            </AppButton>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <!-- Kotak Kosong transparan ketika rekomendasi algoritma masih belum tiba -->
+    <div v-if="isLoadingMetadata && sortedAlgorithms.length === 0" class="py-8"></div>
+
+    <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <button
-            v-for="algorithm in algorithms"
+            v-for="algorithm in sortedAlgorithms"
             :key="algorithm.key"
             type="button"
             class="focus-ring rounded-xl border bg-surface p-5 text-left transition-colors dark:bg-surface-dark"
@@ -499,8 +382,6 @@ function exportRules(payload) {
 
     <div v-else class="space-y-4">
         <template v-for="result in results" :key="result.key">
-            <!-- Algoritma yang tidak cocok tetap dilaporkan, bukan dihilangkan
-                 diam-diam, supaya pengguna tahu mengapa hasilnya tidak ada. -->
             <AppCard v-if="!result.ok" :title="result.name">
                 <p class="flex items-start gap-2 text-sm text-ink-2 dark:text-ink-2-dark">
                     <AppIcon

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import PageHeader from '@/Components/UI/PageHeader.vue';
 import AppCard from '@/Components/UI/AppCard.vue';
 import AppButton from '@/Components/UI/AppButton.vue';
@@ -7,40 +7,82 @@ import AppIcon from '@/Components/UI/AppIcon.vue';
 import ChartPanel from '@/Components/Charts/ChartPanel.vue';
 import DatasetSelector from '@/Components/Datasets/DatasetSelector.vue';
 import { useToastStore } from '@/stores/toast';
-import { cleaning } from '@/data/placeholder';
 
-const { issues, strategies, impact } = cleaning;
 const toast = useToastStore();
 
-// Salinan lokal agar pilihan pengguna tidak memutasi data sumber bersama.
-const defaultStrategies = () =>
-    Object.fromEntries(
-        strategies.map((strategy) => [strategy.key, strategy.selected]),
-    );
+// State reaktif dengan nilai awal kosong (aman untuk di-render langsung)
+const issues = ref([]);
+const strategies = ref([]);
+const impact = ref({ labels: [], series: [] });
+const selectedStrategies = ref({});
 
-const selectedStrategies = ref(defaultStrategies());
+// Status proses API
+const isLoading = ref(true); // Tetap dipertahankan HANYA untuk menonaktifkan tombol Terapkan
 const isApplying = ref(false);
-
-// Simulasi job cleaning; nanti diganti pemanggilan Python engine lewat API.
-function applyCleaning() {
-    isApplying.value = true;
-
-    setTimeout(() => {
-        isApplying.value = false;
-        toast.push('Cleaning diterapkan pada salinan dataset — berkas asli utuh.');
-    }, 1500);
-}
-
-function resetStrategies() {
-    selectedStrategies.value = defaultStrategies();
-    toast.push('Strategi dikembalikan ke rekomendasi default.', 'info');
-}
 
 const ISSUE_TONES = {
     warning: 'text-[#8a5a00] dark:text-status-warning',
     serious: 'text-[#a34418] dark:text-status-serious',
     critical: 'text-status-critical',
 };
+
+// Fungsi untuk membentuk default state berdasarkan data dari backend
+const generateDefaultStrategies = () => {
+    return Object.fromEntries(
+        strategies.value.map((strategy) => [strategy.key, strategy.selected]),
+    );
+};
+
+// Ambil data dari Backend
+async function fetchCleaningData() {
+    isLoading.value = true;
+    try {
+        // --- SIMULASI PEMANGGILAN API ---
+        const fakeApiResponse = await new Promise((resolve) => setTimeout(() => resolve({
+            issues: [ /* Data dari python */ ],
+            strategies: [ /* Data dari python */ ],
+            impact: { labels: [], series: [] }
+        }), 1000));
+        // --------------------------------
+
+        // Setel data
+        // issues.value = response.data.issues;
+        // strategies.value = response.data.strategies;
+        // impact.value = response.data.impact;
+        
+        selectedStrategies.value = generateDefaultStrategies();
+    } catch (error) {
+        console.error("Gagal mengambil data cleaning:", error);
+        toast.push('Gagal mengambil data analisis dari server.', 'error');
+    } finally {
+        isLoading.value = false;
+    }
+}
+
+// Kirim data ke Backend
+async function applyCleaning() {
+    isApplying.value = true;
+    try {
+        // Simulasi request API POST
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        toast.push('Cleaning diterapkan pada salinan dataset — berkas asli utuh.');
+    } catch (error) {
+        console.error("Gagal menerapkan cleaning:", error);
+        toast.push('Terjadi kesalahan saat menerapkan cleaning.', 'error');
+    } finally {
+        isApplying.value = false;
+    }
+}
+
+function resetStrategies() {
+    selectedStrategies.value = generateDefaultStrategies();
+    toast.push('Strategi dikembalikan ke rekomendasi default.', 'info');
+}
+
+onMounted(() => {
+    fetchCleaningData();
+});
 </script>
 
 <template>
@@ -54,10 +96,11 @@ const ISSUE_TONES = {
     >
         <template #actions>
             <DatasetSelector />
+            <!-- Tombol tetap di-disable jika sedang ambil data awal atau sedang apply -->
             <AppButton
                 variant="primary"
                 icon="play"
-                :disabled="isApplying"
+                :disabled="isApplying || isLoading"
                 @click="applyCleaning"
             >
                 {{ isApplying ? 'Menerapkan…' : 'Terapkan Cleaning' }}
@@ -65,7 +108,10 @@ const ISSUE_TONES = {
         </template>
     </PageHeader>
 
+    <!-- LANGSUNG RENDER KONTEN (Tanpa v-if="isLoading" atau v-else) -->
+    
     <!-- Masalah terdeteksi -->
+    <!-- Jika 'issues' masih kosong saat awal, div ini tidak akan error, hanya tidak merender apa-apa dulu -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div
             v-for="issue in issues"
@@ -87,7 +133,7 @@ const ISSUE_TONES = {
                 <span
                     class="text-3xl font-semibold leading-none text-ink dark:text-ink-dark"
                 >
-                    {{ issue.count.toLocaleString('id-ID') }}
+                    {{ issue.count?.toLocaleString('id-ID') || 0 }}
                 </span>
                 <span class="text-sm text-ink-2 dark:text-ink-2-dark">
                     {{ issue.unit }}
@@ -106,15 +152,14 @@ const ISSUE_TONES = {
                 title="Strategi Pembersihan"
                 subtitle="Pilihan ini menentukan langkah yang dijalankan Python engine."
             >
+                <!-- Jika 'strategies' kosong, div di bawah ini aman (kosong sementara) -->
                 <div class="space-y-5">
                     <div
                         v-for="strategy in strategies"
                         :key="strategy.key"
                         class="border-b border-hairline pb-5 last:border-0 last:pb-0 dark:border-hairline-dark"
                     >
-                        <p
-                            class="mb-2.5 text-sm font-medium text-ink dark:text-ink-dark"
-                        >
+                        <p class="mb-2.5 text-sm font-medium text-ink dark:text-ink-dark">
                             {{ strategy.label }}
                         </p>
 
@@ -129,15 +174,18 @@ const ISSUE_TONES = {
                                         ? 'bg-accent text-white ring-accent dark:bg-accent-dark dark:ring-accent-dark'
                                         : 'text-ink-2 ring-hairline hover:bg-plane dark:text-ink-2-dark dark:ring-hairline-dark dark:hover:bg-raised-dark'
                                 "
-                                :aria-pressed="
-                                    selectedStrategies[strategy.key] === option
-                                "
+                                :aria-pressed="selectedStrategies[strategy.key] === option"
                                 @click="selectedStrategies[strategy.key] = option"
                             >
                                 {{ option }}
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- Pesan sementara jika strategi belum dimuat (opsional) -->
+                    <p v-if="strategies.length === 0" class="text-sm text-ink-3">
+                        Menunggu rekomendasi strategi dari server...
+                    </p>
                 </div>
 
                 <template #footer>
@@ -145,7 +193,7 @@ const ISSUE_TONES = {
                         <p class="text-xs text-ink-3">
                             Perubahan diterapkan pada salinan, dataset asli tetap utuh.
                         </p>
-                        <AppButton size="sm" icon="refresh" @click="resetStrategies">
+                        <AppButton size="sm" icon="refresh" :disabled="isLoading" @click="resetStrategies">
                             Kembalikan Default
                         </AppButton>
                     </div>
@@ -153,7 +201,9 @@ const ISSUE_TONES = {
             </AppCard>
         </div>
 
+        <!-- Render Chart hanya jika label/series sudah terisi dari API -->
         <ChartPanel
+            v-if="impact && impact.labels && impact.labels.length > 0"
             title="Dampak Cleaning"
             subtitle="Perbandingan baris sebelum dan sesudah"
             type="bar"
@@ -162,5 +212,9 @@ const ISSUE_TONES = {
             :series="impact.series"
             :height="300"
         />
+        <!-- Tempat penampung kosong yang aman saat grafik belum datang -->
+        <div v-else class="flex h-[300px] items-center justify-center rounded-xl border border-hairline dark:border-hairline-dark bg-surface dark:bg-surface-dark">
+            <p class="text-sm text-ink-3">Data grafik belum tersedia</p>
+        </div>
     </div>
-</template>
+</template> 
