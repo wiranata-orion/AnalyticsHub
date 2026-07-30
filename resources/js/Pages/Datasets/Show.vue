@@ -93,11 +93,6 @@ const fmt = (value) => (value === null || value === undefined ? '—' : formatNu
                 { label: dataset.name },
             ]"
         >
-            <template #actions>
-                <AppButton variant="primary" icon="play"  :disabled="isReprofiling" @click="reprofile">
-                    {{ isReprofiling ? 'Memproses…' : 'Profiling Ulang' }}
-                </AppButton>
-            </template>
         </PageHeader>
 
         <div class="mb-4 flex flex-wrap items-center gap-2">
@@ -126,7 +121,7 @@ const fmt = (value) => (value === null || value === undefined ? '—' : formatNu
             />
         </div>
 
-        <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div class="mt-4 grid grid-cols-1 gap-4 lg">
             <div class="lg:col-span-2">
                 <AppCard
                     title="Profil Kolom"
@@ -162,28 +157,6 @@ const fmt = (value) => (value === null || value === undefined ? '—' : formatNu
                     </DataTable>
                 </AppCard>
             </div>
-
-            <AppCard title="Langkah Berikutnya" flush>
-                <ul>
-                    <li
-                        v-for="step in NEXT_STEPS"
-                        :key="step.label"
-                        class="border-b border-hairline last:border-0 dark:border-hairline-dark"
-                    >
-                        <RouterLink
-                            :to="{ name: step.name }"
-                            class="focus-ring flex gap-3 px-5 py-3.5 transition-colors hover:bg-plane dark:hover:bg-raised-dark/60"
-                        >
-                            <AppIcon :name="step.icon" class="mt-0.5 h-[18px] w-[18px] shrink-0 text-accent dark:text-accent-dark" />
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-medium text-ink dark:text-ink-dark">{{ step.label }}</p>
-                                <p class="mt-0.5 text-xs text-ink-2 dark:text-ink-2-dark">{{ step.description }}</p>
-                            </div>
-                            <AppIcon name="chevronRight" class="mt-1 h-3.5 w-3.5 shrink-0 text-ink-3" />
-                        </RouterLink>
-                    </li>
-                </ul>
-            </AppCard>
         </div>
     </template>
 
