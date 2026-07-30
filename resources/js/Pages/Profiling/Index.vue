@@ -123,7 +123,6 @@ const fmt = (value) => (value === null || value === undefined ? '—' : formatNu
 <template>
     <PageHeader
         title="Data Profiling"
-        description="Karakteristik dataset: tipe data, kelengkapan, sebaran, dan hubungan antar kolom — dihitung engine Python di server."
         :breadcrumbs="[
             { label: 'Dashboard', to: { name: 'dashboard' } },
             { label: 'Profiling' },
@@ -131,7 +130,12 @@ const fmt = (value) => (value === null || value === undefined ? '—' : formatNu
     >
         <template #actions>
             <DatasetSelector />
-            <AppButton variant="primary" icon="refresh" :disabled="isReprofiling" @click="reprofile">
+            <AppButton 
+                variant="primary" 
+                icon="refresh" 
+                :disabled="isReprofiling || isLoading || !datasetStore.selectedId" 
+                @click="reprofile"
+            >
                 {{ isReprofiling ? 'Memproses…' : 'Jalankan Ulang' }}
             </AppButton>
         </template>
@@ -141,7 +145,6 @@ const fmt = (value) => (value === null || value === undefined ? '—' : formatNu
         <EmptyState
             icon="profiling"
             title="Belum ada dataset terpilih"
-            description="Unggah atau pilih dataset — hasil profiling-nya langsung tampil di sini."
         />
     </AppCard>
 

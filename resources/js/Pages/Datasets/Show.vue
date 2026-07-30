@@ -94,11 +94,8 @@ const fmt = (value) => (value === null || value === undefined ? '—' : formatNu
             ]"
         >
             <template #actions>
-                <AppButton icon="refresh" :disabled="isReprofiling" @click="reprofile">
+                <AppButton variant="primary" icon="play"  :disabled="isReprofiling" @click="reprofile">
                     {{ isReprofiling ? 'Memproses…' : 'Profiling Ulang' }}
-                </AppButton>
-                <AppButton variant="primary" icon="play" :to="{ name: 'profiling.index' }">
-                    Buka Profiling
                 </AppButton>
             </template>
         </PageHeader>

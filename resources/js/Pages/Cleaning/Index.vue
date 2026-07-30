@@ -134,7 +134,6 @@ watch(
 <template>
     <PageHeader
         title="Data Cleaning"
-        description="Tinjau masalah kualitas data dan tentukan strategi penanganannya sebelum analisis."
         :breadcrumbs="[
             { label: 'Dashboard', to: { name: 'dashboard' } },
             { label: 'Cleaning' },

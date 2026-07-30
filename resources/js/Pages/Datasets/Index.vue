@@ -71,6 +71,7 @@ async function removeDataset(dataset) {
     try {
         await datasetStore.remove(dataset.id);
         toast.push(`Dataset "${dataset.name}" dihapus.`);
+        await datasetStore.fetchAll();
     } catch (error) {
         toast.push(error.message, 'warning');
     }
@@ -80,7 +81,6 @@ async function removeDataset(dataset) {
 <template>
     <PageHeader
         title="Dataset"
-        description="Kelola berkas yang sudah diunggah dan lanjutkan ke tahap analisis."
         :breadcrumbs="[
             { label: 'Dashboard', to: { name: 'dashboard' } },
             { label: 'Dataset' },
@@ -181,26 +181,7 @@ async function removeDataset(dataset) {
             v-else-if="datasetStore.items.length === 0 && !datasetStore.isLoading"
             icon="datasets"
             title="Belum ada dataset"
-            :description="datasetStore.loadError
-                ? datasetStore.loadError
-                : 'Unggah berkas CSV atau Excel — profiling berjalan otomatis begitu unggahan selesai.'"
         >
-            <template #action>
-                <AppButton variant="primary" icon="upload" :to="{ name: 'datasets.create' }">
-                    Upload Dataset
-                </AppButton>
-            </template>
-        </EmptyState>
-
-        <EmptyState
-            v-else
-            icon="search"
-            title="Dataset tidak ditemukan"
-            description="Tidak ada dataset yang cocok dengan pencarian atau filter saat ini."
-        >
-            <template #action>
-                <AppButton icon="refresh" @click="resetFilters">Reset Filter</AppButton>
-            </template>
         </EmptyState>
     </AppCard>
 </template>
