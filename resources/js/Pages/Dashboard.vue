@@ -110,7 +110,6 @@ onMounted(() => {
 <template>
     <PageHeader
         title="Dashboard"
-        description="Ringkasan dataset, analisis yang berjalan, dan temuan terbaru."
     >
         <template #actions>
             <AppButton icon="refresh" :disabled="isReloading" @click="reload">

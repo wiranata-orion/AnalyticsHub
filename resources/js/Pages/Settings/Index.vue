@@ -58,11 +58,6 @@ function saveStoragePrefs() {
     toast.push('Preferensi penyimpanan disimpan di peramban ini.');
 }
 
-const THEME_LABELS = {
-    light: 'Selalu terang',
-    dark: 'Selalu gelap',
-    system: 'Mengikuti pengaturan sistem',
-};
 
 const ENGINE_ROWS = [
     { label: 'Interpreter', value: 'python/venv/Scripts/python.exe' },
@@ -92,23 +87,7 @@ const SYSTEM_ROWS = [
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div class="space-y-4 lg:col-span-2">
-            <AppCard
-                title="Tampilan"
-                subtitle="Preferensi tema disimpan di peramban ini saja."
-            >
-                <div class="flex flex-wrap items-center justify-between gap-4">
-                    <div class="min-w-0">
-                        <p class="text-sm font-medium text-ink dark:text-ink-dark">
-                            Tema Antarmuka
-                        </p>
-                        <p class="mt-0.5 text-sm text-ink-2 dark:text-ink-2-dark">
-                            {{ THEME_LABELS[preference] }}
-                        </p>
-                    </div>
-
-                    <ThemeToggle />
-                </div>
-            </AppCard>
+    
 
             <AppCard
                 title="Python Engine"

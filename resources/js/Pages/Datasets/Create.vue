@@ -119,7 +119,6 @@ async function submit() {
 <template>
     <PageHeader
         title="Upload Dataset"
-        description="Unggah berkas CSV atau Excel untuk mulai dianalisis."
         :breadcrumbs="[
             { label: 'Dashboard', to: { name: 'dashboard' } },
             { label: 'Dataset', to: { name: 'datasets.index' } },
@@ -127,7 +126,6 @@ async function submit() {
         ]"
     />
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div class="space-y-4 lg:col-span-2">
             <AppCard>
                 <!-- Dropzone -->
@@ -289,46 +287,4 @@ async function submit() {
                 </template>
             </AppCard>
         </div>
-
-        <AppCard title="Yang Terjadi Setelah Unggah">
-            <ol class="space-y-4">
-                <li
-                    v-for="(step, index) in [
-                        {
-                            title: 'Validasi berkas',
-                            body: 'Format, ukuran, dan struktur kolom diperiksa.',
-                        },
-                        {
-                            title: 'Data profiling',
-                            body: 'Tipe data, missing value, duplikat, dan outlier dihitung.',
-                        },
-                        {
-                            title: 'Rekomendasi cleaning',
-                            body: 'Sistem mengusulkan langkah pembersihan yang sesuai.',
-                        },
-                        {
-                            title: 'Siap dianalisis',
-                            body: 'Dataset dapat dipakai untuk visualisasi, mining, dan model.',
-                        },
-                    ]"
-                    :key="step.title"
-                    class="flex gap-3"
-                >
-                    <span
-                        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-plane text-xs font-semibold tabular-nums text-ink-2 dark:bg-raised-dark dark:text-ink-2-dark"
-                    >
-                        {{ index + 1 }}
-                    </span>
-                    <div class="min-w-0">
-                        <p class="text-sm font-medium text-ink dark:text-ink-dark">
-                            {{ step.title }}
-                        </p>
-                        <p class="mt-0.5 text-sm text-ink-2 dark:text-ink-2-dark">
-                            {{ step.body }}
-                        </p>
-                    </div>
-                </li>
-            </ol>
-        </AppCard>
-    </div>
 </template>
