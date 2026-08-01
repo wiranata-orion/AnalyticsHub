@@ -21,7 +21,7 @@ export const useDatasetStore = defineStore('dataset', () => {
     const details = ref({});
 
     const selected = computed(
-        () => items.value.find((item) => item.id === selectedId.value) ?? null,
+        () => items.value.find((item) => String(item.id) === String(selectedId.value)) ?? null,
     );
 
     const readyItems = computed(() =>
@@ -64,29 +64,33 @@ export const useDatasetStore = defineStore('dataset', () => {
             return null;
         }
 
-        if (!force && details.value[id]) {
-            return details.value[id];
+        const datasetId = String(id);
+
+        if (!force && details.value[datasetId]) {
+            return details.value[datasetId];
         }
 
-        const response = await api.datasets.show(id);
+        const response = await api.datasets.show(datasetId);
 
-        details.value = { ...details.value, [id]: response.data };
+        details.value = { ...details.value, [datasetId]: response.data };
 
         return response.data;
     }
 
     async function select(id) {
-        selectedId.value = Number(id);
+        selectedId.value = id ? String(id) : null;
         await fetchDetail(selectedId.value);
     }
 
     async function remove(id) {
-        await api.datasets.remove(id);
+        const datasetId = String(id);
 
-        items.value = items.value.filter((item) => item.id !== Number(id));
-        delete details.value[Number(id)];
+        await api.datasets.remove(datasetId);
 
-        if (selectedId.value === Number(id)) {
+        items.value = items.value.filter((item) => String(item.id) !== datasetId);
+        delete details.value[datasetId];
+
+        if (String(selectedId.value) === datasetId) {
             selectedId.value = items.value[0]?.id ?? null;
 
             if (selectedId.value) {
@@ -107,7 +111,9 @@ export const useDatasetStore = defineStore('dataset', () => {
     }
 
     function findById(id) {
-        return items.value.find((item) => item.id === Number(id)) ?? null;
+        const datasetId = String(id);
+
+        return items.value.find((item) => String(item.id) === datasetId) ?? null;
     }
 
     return {
