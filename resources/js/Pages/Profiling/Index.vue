@@ -98,10 +98,20 @@ async function reprofile() {
 }
 
 function exportColumns() {
+    const formatPercent = (value) => (value === null || value === undefined ? '—' : `${Number(value).toFixed(1).replace('.', ',')}%`);
+
     downloadCsv(
         'profil_kolom.csv',
         ['Kolom', 'Tipe', 'Missing %', 'Unik', 'Mean', 'Std', 'Outlier'],
-        columns.value.map((c) => [c.name, c.type, c.missing, c.unique, c.mean ?? '', c.std ?? '', c.outlier_count]),
+        columns.value.map((c) => [
+            c.name,
+            c.type,
+            formatPercent(c.missing),
+            c.unique.toLocaleString('id-ID'),
+            fmt(c.mean),
+            fmt(c.std),
+            c.outlier_count.toLocaleString('id-ID'),
+        ]),
     );
     toast.push('Profil kolom diekspor sebagai CSV.');
 }
@@ -133,7 +143,7 @@ const fmt = (value) => (value === null || value === undefined ? '—' : formatNu
             <AppButton 
                 variant="primary" 
                 icon="refresh" 
-                :disabled="isReprofiling || isLoading || !datasetStore.selectedId" 
+                :disabled="isReprofiling || datasetStore.isLoading || !datasetStore.selectedId" 
                 @click="reprofile"
             >
                 {{ isReprofiling ? 'Memproses…' : 'Jalankan Ulang' }}
