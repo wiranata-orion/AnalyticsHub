@@ -91,6 +91,12 @@ export const api = {
         },
     },
 
+    cleaning: {
+        show: (datasetId) => unwrap(client.get(`/datasets/${datasetId}/cleaning`)),
+        apply: (datasetId, payload = {}) => unwrap(client.post(`/datasets/${datasetId}/cleaning`, payload)),
+        downloadUrl: (datasetId) => `/api/datasets/${datasetId}/cleaning/download`,
+    },
+
     /*
      * Satu pintu untuk seluruh analisis. `variant` mengikuti daftar di
      * App\Http\Controllers\Api\AnalysisController: univariate, bivariate,
