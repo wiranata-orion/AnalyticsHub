@@ -52,7 +52,7 @@ async function reprofile() {
         const response = await api.datasets.reprofile(props.id);
 
         dataset.value = response.data;
-        datasetStore.details[Number(props.id)] = response.data;
+        datasetStore.details[String(props.id)] = response.data;
         toast.push('Profiling ulang selesai.');
     } catch (error) {
         toast.push(error.message, 'warning');

@@ -94,13 +94,15 @@ async function submit() {
         return;
     }
 
+    const delimiter = options.value.delimiter === '\\t' ? '\t' : options.value.delimiter;
+
     isUploading.value = true;
     uploadProgress.value = 0;
 
     try {
         const dataset = await datasetStore.upload(
             file.value,
-            options.value,
+            { ...options.value, delimiter },
             (percent) => (uploadProgress.value = percent),
         );
 
@@ -229,7 +231,7 @@ async function submit() {
                         >
                             <option value=",">Koma ( , )</option>
                             <option value=";">Titik koma ( ; )</option>
-                            <option value="\t">Tab</option>
+                            <option :value="'\t'">Tab</option>
                             <option value="|">Pipa ( | )</option>
                         </select>
                     </div>
