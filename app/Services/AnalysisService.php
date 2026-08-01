@@ -2,8 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\AnalysisRun;
-use App\Models\Dataset;
+use Illuminate\Support\Facades\Storage;
 
 /*
  * Menjalankan analisis dan menyimpan hasilnya.
@@ -31,44 +30,36 @@ class AnalysisService
      * @param  string  $command  perintah engine Python
      */
     public function run(
-        Dataset $dataset,
+        string $datasetId,
         string $kind,
         string $variant,
         string $command,
         array $params = [],
-    ): AnalysisRun {
-        $run = AnalysisRun::create([
-            'dataset_id' => $dataset->id,
-            'kind' => $kind,
-            'variant' => $variant,
-            'params' => $params,
-            'status' => 'running',
-        ]);
+    ): array {
+        $outcome = $this->engine->run(
+            $command,
+            $this->datasets->localEngineParams($datasetId, $params),
+        );
 
-        try {
-            $outcome = $this->engine->run(
-                $command,
-                $this->datasets->engineParams($dataset, $params),
-            );
-
-            $run->update([
-                'result' => json_encode($outcome['data'], JSON_UNESCAPED_UNICODE),
-                'status' => 'ready',
+        $payload = [
+            'data' => $outcome['data'],
+            'meta' => [
+                'run_id' => null,
                 'duration_ms' => $outcome['duration_ms'],
-            ]);
-        } catch (\Throwable $error) {
-            $run->update(['status' => 'failed', 'error_message' => $error->getMessage()]);
+                'ran_at' => now()->toIso8601String(),
+                'params' => $params,
+            ],
+        ];
 
-            throw $error;
-        }
+        $this->storeLocalResult($datasetId, $kind, $variant, $payload);
 
-        return $run->fresh();
+        return $payload;
     }
 
     /** Hasil terakhir yang berhasil, untuk mengisi halaman tanpa menghitung ulang. */
-    public function latest(Dataset $dataset, string $kind, ?string $variant = null): ?AnalysisRun
+    public function latest(string $datasetId, string $kind, ?string $variant = null): ?array
     {
-        return $dataset->analysisRuns()->latestOf($kind, $variant)->first();
+        return $this->loadLocalResult($datasetId, $kind, $variant);
     }
 
     /**
@@ -78,18 +69,49 @@ class AnalysisService
      * halaman tidak memicu perhitungan berat yang sama untuk kedua kalinya.
      */
     public function cached(
-        Dataset $dataset,
+        string $datasetId,
         string $kind,
         string $variant,
         string $command,
         array $params = [],
-    ): AnalysisRun {
-        $existing = $this->latest($dataset, $kind, $variant);
+    ): array {
+        $existing = $this->latest($datasetId, $kind, $variant);
 
-        if ($existing && $existing->params == $params) {
+        if ($existing && (($existing['meta']['params'] ?? null) == $params)) {
             return $existing;
         }
 
-        return $this->run($dataset, $kind, $variant, $command, $params);
+        return $this->run($datasetId, $kind, $variant, $command, $params);
+    }
+
+    private function resultPath(string $datasetId, string $kind, ?string $variant = null): string
+    {
+        $datasetKey = basename($datasetId);
+        $kindKey = preg_replace('/[^A-Za-z0-9._-]/', '_', $kind) ?: 'analysis';
+        $variantKey = preg_replace('/[^A-Za-z0-9._-]/', '_', $variant ?? 'default') ?: 'default';
+
+        return 'analysis/'.$datasetKey.'/'.$kindKey.'/'.$variantKey.'.json';
+    }
+
+    private function storeLocalResult(string $datasetId, string $kind, string $variant, array $payload): void
+    {
+        Storage::disk(config('python.dataset_disk'))->put(
+            $this->resultPath($datasetId, $kind, $variant),
+            json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        );
+    }
+
+    private function loadLocalResult(string $datasetId, string $kind, ?string $variant = null): ?array
+    {
+        $disk = Storage::disk(config('python.dataset_disk'));
+        $path = $this->resultPath($datasetId, $kind, $variant);
+
+        if (! $disk->exists($path)) {
+            return null;
+        }
+
+        $decoded = json_decode($disk->get($path), true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 }

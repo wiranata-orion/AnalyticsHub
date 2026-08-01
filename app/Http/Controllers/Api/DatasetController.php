@@ -57,7 +57,7 @@ class DatasetController extends Controller
         ]);
 
         $result = $this->datasets->store($request->file('file'), [
-            'delimiter' => $validated['delimiter'] ?? ',',
+            'delimiter' => $this->normalizeDelimiter($validated['delimiter'] ?? ','),
             'encoding' => $validated['encoding'] ?? 'UTF-8',
             'has_header' => $request->boolean('has_header', true),
         ]);
@@ -69,13 +69,23 @@ class DatasetController extends Controller
 
         $formattedData = [
             'id'            => $filename,
+            'path'          => $result['file_path'],
             'name'          => $result['original_name'],
             'original_name' => $result['original_name'],
             'format'        => $result['format'],
-            'delimiter'     => $validated['delimiter'] ?? ',',
+            'delimiter'     => $this->normalizeDelimiter($validated['delimiter'] ?? ','),
             'encoding'      => $validated['encoding'] ?? 'UTF-8',
+            'has_header'    => $request->boolean('has_header', true),
             'rows'          => $profile['row_count'] ?? 0,
             'columns_count' => $profile['column_count'] ?? 0,
+            'missing_cells' => $profile['missing_cells'] ?? 0,
+            'duplicate_rows' => $profile['duplicate_rows'] ?? 0,
+            'outlier_ratio' => $profile['outlier_ratio'] ?? 0,
+            'numeric_columns' => $profile['numeric_columns'] ?? [],
+            'categorical_columns' => $profile['categorical_columns'] ?? [],
+            'datetime_columns' => $profile['datetime_columns'] ?? [],
+            'identifier_columns' => $profile['identifier_columns'] ?? [],
+            'preview'       => $profile['preview'] ?? null,
             'size'          => $this->humanSize($result['size_bytes']),
             'status'        => 'ready',
             'error_message' => null,
@@ -111,21 +121,22 @@ class DatasetController extends Controller
     // PERBAIKAN 2: Ubah dari Dataset $dataset menjadi string $id
     public function show(string $id): JsonResponse
     {
-        $disk = Storage::disk(config('python.dataset_disk'));
-        $jsonPath = 'datasets/' . $id . '.json';
-
-        if (!$disk->exists($jsonPath)) {
-            return response()->json(['message' => 'Dataset tidak ditemukan.'], 404);
+        try {
+            $metadata = $this->datasets->localDatasetMetadata($id);
+        } catch (\RuntimeException $error) {
+            return response()->json(['message' => $error->getMessage()], 404);
         }
 
-        // Baca langsung JSON-nya untuk merender halaman detail
-        $metadata = json_decode($disk->get($jsonPath), true);
         return response()->json(['data' => $metadata]);
     }
 
     public function reprofile(string $id): JsonResponse
     {
-        return $this->show($id); // Reprofile disamakan saja agar tidak error
+        try {
+            return response()->json(['data' => $this->datasets->profileLocal($id)]);
+        } catch (\RuntimeException $error) {
+            return response()->json(['message' => $error->getMessage()], 404);
+        }
     }
 
     // PERBAIKAN 3: Fitur Hapus membaca langsung dari file fisik, bukan database
@@ -158,5 +169,10 @@ class DatasetController extends Controller
         }
 
         return number_format($bytes / 1024, 0, ',', '.').' KB';
+    }
+
+    private function normalizeDelimiter(string $delimiter): string
+    {
+        return $delimiter === '\\t' ? "\t" : $delimiter;
     }
 }

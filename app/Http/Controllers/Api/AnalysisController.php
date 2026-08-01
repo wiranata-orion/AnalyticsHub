@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Dataset;
 use App\Services\AnalysisService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -66,7 +65,7 @@ class AnalysisController extends Controller
         ]],
     ];
 
-    public function run(Request $request, Dataset $dataset, string $variant): JsonResponse
+    public function run(Request $request, string $dataset, string $variant): JsonResponse
     {
         $route = self::ROUTES[$variant] ?? null;
 
@@ -84,20 +83,20 @@ class AnalysisController extends Controller
             static fn ($value) => $value !== null,
         );
 
-        $run = $this->analysis->run($dataset, $kind, $variant, $command, $params);
+        try {
+            $result = $this->analysis->run($dataset, $kind, $variant, $command, $params);
+        } catch (\RuntimeException $error) {
+            return response()->json(['message' => $error->getMessage()], 404);
+        }
 
         return response()->json([
-            'data' => $run->resultArray(),
-            'meta' => [
-                'run_id' => $run->id,
-                'duration_ms' => $run->duration_ms,
-                'ran_at' => $run->created_at?->toIso8601String(),
-            ],
+            'data' => $result['data'],
+            'meta' => $result['meta'],
         ]);
     }
 
     /** Hasil terakhir tanpa menghitung ulang — dipakai saat halaman dibuka lagi. */
-    public function latest(Dataset $dataset, string $variant): JsonResponse
+    public function latest(string $dataset, string $variant): JsonResponse
     {
         $route = self::ROUTES[$variant] ?? null;
 
@@ -105,20 +104,16 @@ class AnalysisController extends Controller
             return response()->json(['message' => "Analisis '{$variant}' tidak dikenal."], 404);
         }
 
-        $run = $this->analysis->latest($dataset, $route[0], $variant);
+        try {
+            $run = $this->analysis->latest($dataset, $route[0], $variant);
+        } catch (\RuntimeException $error) {
+            return response()->json(['message' => $error->getMessage()], 404);
+        }
 
         if (! $run) {
             return response()->json(['data' => null, 'meta' => null]);
         }
 
-        return response()->json([
-            'data' => $run->resultArray(),
-            'meta' => [
-                'run_id' => $run->id,
-                'duration_ms' => $run->duration_ms,
-                'ran_at' => $run->created_at?->toIso8601String(),
-                'params' => $run->params,
-            ],
-        ]);
+        return response()->json($run);
     }
 }
