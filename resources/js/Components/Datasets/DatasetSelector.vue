@@ -12,6 +12,13 @@ import AppIcon from '@/Components/UI/AppIcon.vue';
  */
 const store = useDatasetStore();
 const { items, selectedId } = storeToRefs(store);
+
+defineProps({
+    disabled: {
+        type: Boolean,
+        default: false,
+    },
+});
 </script>
 
 <template>
@@ -33,6 +40,7 @@ const { items, selectedId } = storeToRefs(store);
             <select
                 id="dataset-selector"
                 :value="selectedId ?? ''"
+                :disabled="disabled"
                 class="focus-ring h-9 min-w-[15rem] rounded-lg border-hairline bg-surface py-0 pl-9 pr-8 text-sm text-ink focus:border-hairline focus:ring-0 dark:border-hairline-dark dark:bg-surface-dark dark:text-ink-dark"
                 @change="store.select($event.target.value)"
             >
